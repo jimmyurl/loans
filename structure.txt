@@ -1,0 +1,55 @@
+microfinance-react/
+│
+├── public/
+│   ├── favicon.ico
+│   ├── index.html
+│   └── manifest.json
+│
+├── src/
+│   ├── components/
+│   │   ├── Layout.jsx           # Main layout with header, sidebar, footer
+│   │   ├── Alert.jsx            # Reusable alert component
+│   │   ├── StatsCard.jsx        # Dashboard stats card component
+│   │   ├── LoanTable.jsx        # Reusable loan table component
+│   │   └── ...
+│   │
+│   ├── pages/
+│   │   ├── Dashboard.jsx        # Dashboard page
+│   │   ├── Login.jsx            # Login page
+│   │   ├── Clients/
+│   │   │   ├── ClientList.jsx   # Client listing page
+│   │   │   ├── ClientDetail.jsx # Client details page
+│   │   │   └── ClientForm.jsx   # New/edit client form
+│   │   │
+│   │   ├── Loans/
+│   │   │   ├── LoanList.jsx     # Loan listing page
+│   │   │   ├── LoanDetail.jsx   # Loan details page
+│   │   │   └── LoanForm.jsx     # New/edit loan form
+│   │   │
+│   │   ├── Disbursements.jsx
+│   │   ├── Repayments.jsx
+│   │   ├── Reports.jsx
+│   │   └── Settings.jsx
+│   │
+│   ├── context/
+│   │   ├── AuthContext.jsx      # Authentication context
+│   │   └── AlertContext.jsx     # Alerts management context
+│   │
+│   ├── services/
+│   │   ├── api.js               # API service
+│   │   ├── auth.js              # Authentication service
+│   │   ├── loans.js             # Loan-related API calls
+│   │   └── clients.js           # Client-related API calls
+│   │
+│   ├── utils/
+│   │   ├── formatters.js        # Date and currency formatters
+│   │   ├── validators.js        # Form validation helpers
+│   │   └── constants.js         # App constants
+│   │
+│   ├── App.jsx                  # Main app component
+│   ├── index.jsx                # Entry point
+│   └── index.css                # Global styles
+│
+├── package.json
+├── tailwind.config.js
+└── README.md

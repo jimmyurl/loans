@@ -60,7 +60,16 @@ const Disbursements = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch pending loans (loans with status 'Approved' but not disbursed)
+      // First, get all loan IDs that have disbursements
+      const { data: disbursedLoans, error: disbursedError } = await supabase
+        .from('loan_disbursements')
+        .select('loan_id');
+      
+      if (disbursedError) throw disbursedError;
+      
+      const disbursedLoanIds = disbursedLoans.map(d => d.loan_id);
+      
+      // Fetch pending loans (loans with status 'Approved' but not in disbursedLoanIds)
       const { data: pendingLoans, error: pendingError } = await supabase
         .from('loans')
         .select(`
@@ -74,12 +83,10 @@ const Disbursements = () => {
           term_months
         `)
         .eq('status', 'Approved')
-        .not('id', 'in', 
-          supabase.from('loan_disbursements').select('loan_id')
-        );
-
+        .not('id', 'in', `(${disbursedLoanIds.join(',')})`);
+      
       if (pendingError) throw pendingError;
-
+  
       // Format pending loans data
       const formattedPending = pendingLoans.map(loan => ({
         id: loan.loan_number,
@@ -88,9 +95,9 @@ const Disbursements = () => {
         approvalDate: loan.approval_date,
         loanTerm: `${loan.term_months} Months`,
         status: loan.status,
-        loanId: loan.id // Store the actual loan ID for disbursement
+        loanId: loan.id
       }));
-
+  
       setPendingDisbursements(formattedPending);
 
       // Fetch recent disbursements based on filter

@@ -1,9 +1,9 @@
-// src/pages/loans/LoanList.jsx
+// src/pages/LoansPage.jsx
 import { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../../App';
+import { AuthContext } from '../App';
 
-const LoanList = () => {
+const LoansPage = () => {
   const navigate = useNavigate();
   const { supabase } = useContext(AuthContext);
   const [loans, setLoans] = useState([]);
@@ -155,28 +155,47 @@ const LoanList = () => {
   };
 
   return (
-    <div className="loan-list-container">
-      <div className="filters-container">
-        <div className="search-bar">
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h2>Loan Management</h2>
+        <button 
+          className="btn btn-primary" 
+          onClick={() => navigate('/new-loan')}
+          style={{ display: 'flex', alignItems: 'center' }}
+        >
+          <span style={{ marginRight: '8px' }}>+</span> New Loan
+        </button>
+      </div>
+      
+      {error && (
+        <div className="alert alert-error">
+          {error}
+        </div>
+      )}
+      
+      <div style={{ display: 'flex', marginBottom: '1rem', gap: '1rem' }}>
+        <div className="search-bar" style={{ flex: 1 }}>
           <input
             type="text"
             placeholder="Search by client name, purpose, or ID..."
             value={searchTerm}
             onChange={handleSearchChange}
-            className="search-input"
           />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="clear-search">
-              Clear
-            </button>
-          )}
+          <button onClick={() => setSearchTerm('')}>
+            {searchTerm ? 'Clear' : 'Search'}
+          </button>
         </div>
         
-        <div className="status-filter">
+        <div style={{ minWidth: '180px' }}>
           <select 
             value={statusFilter} 
             onChange={handleFilterChange}
-            className="status-select"
+            style={{ 
+              padding: '0.75rem',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              width: '100%'
+            }}
           >
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>
@@ -192,32 +211,26 @@ const LoanList = () => {
         </div>
       </div>
       
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
-      
       <div className="table-responsive">
-        <table className="loans-table">
+        <table>
           <thead>
             <tr>
-              <th onClick={() => handleSort('id')} className="sortable-header">
+              <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
                 Loan ID {sortBy === 'id' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th onClick={() => handleSort('client_name')} className="sortable-header">
+              <th onClick={() => handleSort('client_name')} style={{ cursor: 'pointer' }}>
                 Client Name {sortBy === 'client_name' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th onClick={() => handleSort('loan_amount')} className="sortable-header">
+              <th onClick={() => handleSort('loan_amount')} style={{ cursor: 'pointer' }}>
                 Amount {sortBy === 'loan_amount' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th onClick={() => handleSort('interest_rate')} className="sortable-header">
+              <th onClick={() => handleSort('interest_rate')} style={{ cursor: 'pointer' }}>
                 Interest {sortBy === 'interest_rate' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th onClick={() => handleSort('disbursement_date')} className="sortable-header">
+              <th onClick={() => handleSort('disbursement_date')} style={{ cursor: 'pointer' }}>
                 Disbursement Date {sortBy === 'disbursement_date' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th onClick={() => handleSort('status')} className="sortable-header">
+              <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>
                 Status {sortBy === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th>Actions</th>
@@ -226,19 +239,19 @@ const LoanList = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="7" className="loading-message">
+                <td colSpan="7" style={{ textAlign: 'center', padding: '2rem 0' }}>
                   Loading loans...
                 </td>
               </tr>
             ) : filteredLoans.length === 0 ? (
               <tr>
-                <td colSpan="7" className="no-data-message">
+                <td colSpan="7" style={{ textAlign: 'center', padding: '2rem 0' }}>
                   No loans found. {searchTerm || statusFilter !== 'all' ? 'Try adjusting your search or filters.' : ''}
                 </td>
               </tr>
             ) : (
               filteredLoans.map(loan => (
-                <tr key={loan.id} className="loan-row">
+                <tr key={loan.id}>
                   <td>{loan.id}</td>
                   <td>
                     {loan.clients ? `${loan.clients.first_name} ${loan.clients.last_name}` : 'Unknown Client'}
@@ -248,15 +261,15 @@ const LoanList = () => {
                   <td>{formatDate(loan.disbursement_date)}</td>
                   <td>
                     <span className={getStatusBadgeClass(loan.status)}>
-                      {loan.status ? loan.status.charAt(0).toUpperCase() + loan.status.slice(1) : 'Unknown'}
+                      {loan.status ? loan.status.replace('_', ' ') : 'Unknown'}
                     </span>
                   </td>
-                  <td className="action-buttons">
+                  <td>
                     <Link to={`/loans/${loan.id}`} className="btn btn-view">
                       View
                     </Link>
                     {(loan.status === 'pending' || loan.status === 'approved') && (
-                      <Link to={`/loans/edit/${loan.id}`} className="btn btn-edit">
+                      <Link to={`/loans/${loan.id}/edit`} className="btn btn-edit">
                         Edit
                       </Link>
                     )}
@@ -268,26 +281,24 @@ const LoanList = () => {
         </table>
       </div>
       
-      <div className="loan-stats">
-        <div className="stats-summary">
+      <div style={{ marginTop: '2rem' }}>
+        <h3 style={{ marginBottom: '1rem', color: 'var(--primary-color)' }}>Quick Stats</h3>
+        <div className="dashboard-stats">
           <div className="stat-card">
-            <h4>Active Loans</h4>
-            <p className="stat-value">{loans.filter(loan => 
-              loan.status === 'active' || loan.status === 'disbursed').length}</p>
+            <h3>Total Active Loans</h3>
+            <p>{loans.filter(loan => loan.status === 'active' || loan.status === 'disbursed').length}</p>
+          </div>
+          <div className="stat-card success">
+            <h3>Fully Paid Loans</h3>
+            <p>{loans.filter(loan => loan.status === 'paid').length}</p>
+          </div>
+          <div className="stat-card danger">
+            <h3>Overdue Loans</h3>
+            <p>{loans.filter(loan => loan.status === 'overdue' || loan.status === 'defaulted').length}</p>
           </div>
           <div className="stat-card">
-            <h4>Overdue Loans</h4>
-            <p className="stat-value danger">{loans.filter(loan => 
-              loan.status === 'overdue' || loan.status === 'defaulted').length}</p>
-          </div>
-          <div className="stat-card">
-            <h4>Fully Paid</h4>
-            <p className="stat-value success">{loans.filter(loan => 
-              loan.status === 'paid').length}</p>
-          </div>
-          <div className="stat-card">
-            <h4>Total Portfolio</h4>
-            <p className="stat-value">
+            <h3>Total Portfolio</h3>
+            <p>
               {formatCurrency(
                 loans
                   .filter(loan => ['active', 'disbursed', 'overdue'].includes(loan.status))
@@ -297,17 +308,8 @@ const LoanList = () => {
           </div>
         </div>
       </div>
-      
-      <div className="create-new-loan">
-        <button 
-          className="btn btn-primary create-loan-btn" 
-          onClick={() => navigate('/new-loan')}
-        >
-          + Create New Loan
-        </button>
-      </div>
     </div>
   );
 };
 
-export default LoanList;
+export default LoansPage;

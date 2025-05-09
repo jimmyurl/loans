@@ -1,154 +1,165 @@
-import { useState, useEffect } from 'react';
+// src/components/Layout.jsx
+import { useState, useEffect, useContext } from 'react';
+import { Link, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
+import { AuthContext } from '../App';
 
-const Layout = ({ children, user, onLogout }) => {
-  // States for responsive menu
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const Layout = () => {
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { session, supabase } = useContext(AuthContext);
   
-  // Close mobile menu when window is resized to desktop
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 768) {
-        setMobileMenuOpen(false);
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
+  // Determine active nav item based on the current path
+  const isActive = (path) => {
+    const currentMainPath = '/' + location.pathname.split('/')[1];
+    return currentMainPath === path ? 'text-white font-bold' : '';
   };
+  
+  // Determine active sidebar item based on the current path
+  const isSidebarActive = (path) => {
+    return location.pathname === path ? 'bg-gray-200 font-medium' : '';
+  };
+
+  // Generate dynamic sidebar links based on current path
+  const getSidebarLinks = () => {
+    // Links that are actually routed in the application
+    return [
+      { path: '/dashboard', label: 'Dashboard' },
+      { path: '/new-loan', label: 'New Loan' },
+      { path: '/new-client', label: 'New Client' },
+      { path: '/disbursements', label: 'Disbursements' },
+      { path: '/repayments', label: 'Repayments' },
+      { path: '/reports', label: 'Generate Reports' },
+      { path: '/settings', label: 'Settings' }
+    ];
+  };
+
+  // Load user data from session
+  useEffect(() => {
+    if (session) {
+      setUser(session.user);
+      console.log("User set from session:", session.user);
+    } else {
+      console.log("No session found in Layout, redirecting");
+      // If we have no session but we're in a protected route, redirect to login
+      navigate('/', { replace: true });
+    }
+  }, [session, navigate]);
+
+  const handleLogout = async () => {
+    try {
+      console.log("Logging out");
+      // Use Supabase auth to sign out properly
+      await supabase.auth.signOut();
+      // Navigate to login page
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback: clear session storage and redirect anyway
+      sessionStorage.removeItem('auth');
+      navigate('/', { replace: true });
+    }
+  };
+
+  // If no user is loaded yet, show a simple loading indicator
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-blue-600 text-lg">Loading user data...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <header className="bg-blue-700 text-white">
-        <div className="container mx-auto px-4 py-4 flex items-center">
-          <div className="logo text-xl font-bold">
-            ASSE <span className="font-normal">Microfinance</span>
+      <header className="bg-blue-600 text-white shadow-md">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="logo font-bold text-xl">
+            <Link to="/dashboard">ASSE <span className="font-normal">Microfinance</span></Link>
           </div>
           
-          {/* Mobile menu button */}
-          <button 
-            className="md:hidden ml-auto text-white focus:outline-none"
-            onClick={toggleMobileMenu}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              {mobileMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
-          
-          {/* Desktop Navigation */}
-          <nav className="hidden md:block ml-8">
+          <nav className="hidden md:block">
             <ul className="flex space-x-6">
-              <li><a href="/dashboard" className="py-2 px-1 border-b-2 border-white">Dashboard</a></li>
-              <li><a href="/loans" className="py-2 px-1 hover:border-b-2 hover:border-white">Loans</a></li>
-              <li><a href="/clients" className="py-2 px-1 hover:border-b-2 hover:border-white">Clients</a></li>
-              <li><a href="/reports" className="py-2 px-1 hover:border-b-2 hover:border-white">Reports</a></li>
-              <li><a href="/settings" className="py-2 px-1 hover:border-b-2 hover:border-white">Settings</a></li>
+              <li>
+                <Link to="/dashboard" className={`hover:text-blue-200 ${isActive('/dashboard')}`}>
+                  Dashboard
+                </Link>
+              </li>
+              <li>
+                <Link to="/loans" className={`hover:text-blue-200 ${isActive('/loans')}`}>
+                  Loans
+                </Link>
+              </li>
+              <li>
+                <Link to="/clients" className={`hover:text-blue-200 ${isActive('/clients')}`}>
+                  Clients
+                </Link>
+              </li>
+              <li>
+                <Link to="/reports" className={`hover:text-blue-200 ${isActive('/reports')}`}>
+                  Reports
+                </Link>
+              </li>
+              <li>
+                <Link to="/settings" className={`hover:text-blue-200 ${isActive('/settings')}`}>
+                  Settings
+                </Link>
+              </li>
             </ul>
           </nav>
           
-          {/* User info for desktop */}
-          <div className="hidden md:flex ml-auto items-center">
-            <span className="mr-4">{user?.email || 'User'}</span>
+          <div className="user-menu flex items-center space-x-4">
+            <span className="user-email text-sm">{user?.email || 'User'}</span>
             <button 
-              onClick={onLogout}
-              className="bg-white bg-opacity-20 px-4 py-2 rounded hover:bg-opacity-30 flex items-center"
+              onClick={handleLogout}
+              className="logout-button flex items-center px-3 py-1 bg-blue-700 hover:bg-blue-800 rounded text-sm"
             >
-              <LogOut size={16} className="mr-2" />
+              <LogOut size={16} className="mr-1" />
               Logout
             </button>
           </div>
         </div>
-        
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-blue-800">
-            <ul className="px-4 py-2">
-              <li><a href="/dashboard" className="block py-2 text-white">Dashboard</a></li>
-              <li><a href="/loans" className="block py-2 text-white">Loans</a></li>
-              <li><a href="/clients" className="block py-2 text-white">Clients</a></li>
-              <li><a href="/reports" className="block py-2 text-white">Reports</a></li>
-              <li><a href="/settings" className="block py-2 text-white">Settings</a></li>
+      </header>
+      
+      <div className="container mx-auto px-4 flex-grow flex">
+        <div className="main-content flex flex-col md:flex-row w-full py-6">
+          {/* Sidebar */}
+          <div className="sidebar w-full md:w-64 bg-gray-50 p-4 mb-4 md:mb-0 md:mr-6 rounded shadow">
+            <h3 className="font-bold text-lg mb-4 text-gray-700">Quick Actions</h3>
+            <ul className="space-y-2">
+              {getSidebarLinks().map(link => (
+                <li key={link.path}>
+                  <Link 
+                    to={link.path} 
+                    className={`block p-2 rounded hover:bg-gray-200 ${isSidebarActive(link.path)}`}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
               <li>
                 <button 
-                  onClick={onLogout}
-                  className="flex items-center py-2 text-white w-full"
+                  onClick={handleLogout}
+                  className="w-full text-left p-2 rounded hover:bg-gray-200 text-red-600"
                 >
-                  <LogOut size={16} className="mr-2" />
-                  Logout ({user?.email || 'User'})
+                  Logout
                 </button>
               </li>
             </ul>
           </div>
-        )}
-      </header>
-      
-      <div className="container mx-auto px-4 flex-grow">
-        <div className="flex flex-col md:flex-row mt-6">
-          {/* Sidebar */}
-          <div className="w-full md:w-64 md:mr-8 mb-6 md:mb-0">
-            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-            <ul className="bg-gray-50 rounded-md overflow-hidden shadow-sm">
-              <li>
-                <a href="/dashboard" className="flex px-4 py-3 border-l-4 border-blue-600 bg-blue-50 text-blue-700">
-                  Dashboard
-                </a>
-              </li>
-              <li>
-                <a href="/new-loan" className="flex px-4 py-3 border-l-4 border-transparent hover:bg-gray-100">
-                  New Loan
-                </a>
-              </li>
-              <li>
-                <a href="/new-client" className="flex px-4 py-3 border-l-4 border-transparent hover:bg-gray-100">
-                  New Client
-                </a>
-              </li>
-              <li>
-                <a href="/disbursements" className="flex px-4 py-3 border-l-4 border-transparent hover:bg-gray-100">
-                  Disbursements
-                </a>
-              </li>
-              <li>
-                <a href="/repayments" className="flex px-4 py-3 border-l-4 border-transparent hover:bg-gray-100">
-                  Repayments
-                </a>
-              </li>
-              <li>
-                <a href="/reports" className="flex px-4 py-3 border-l-4 border-transparent hover:bg-gray-100">
-                  Generate Reports
-                </a>
-              </li>
-              <li>
-                <a 
-                  href="#" 
-                  onClick={(e) => {e.preventDefault(); onLogout();}}
-                  className="flex px-4 py-3 border-l-4 border-transparent hover:bg-gray-100 text-red-600"
-                >
-                  Logout
-                </a>
-              </li>
-            </ul>
-          </div>
           
-          {/* Main Content */}
-          <div className="flex-grow">
-            {children}
+          {/* Main Content - uses Outlet for nested routes */}
+          <div className="content flex-grow bg-white p-6 rounded shadow">
+            <Outlet />
           </div>
         </div>
       </div>
       
       {/* Footer */}
-      <footer className="mt-12 py-6 bg-gray-100">
-        <div className="container mx-auto px-4 text-center text-gray-500 text-sm">
+      <footer className="bg-gray-100 py-4 mt-8">
+        <div className="container mx-auto px-4 text-center text-gray-600 text-sm">
           © 2025 ASSE Microfinance. All rights reserved.
         </div>
       </footer>

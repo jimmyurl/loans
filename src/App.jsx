@@ -1,16 +1,31 @@
-import { useState, useEffect } from 'react';
+// src/App.jsx
+import { useState, useEffect, createContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
+import { AlertProvider } from './context/AlertContext';
+import Alert from './components/Alert';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
-// Import other pages as needed
-// import Register from './pages/Register';
-// import ForgotPassword from './pages/ForgotPassword';
+import Layout from './components/Layout';
+import ClientsPage from './pages/ClientsPage';
+import LoansPage from './pages/LoansPage';
+import Reports from './pages/Reports';
+import Settings from './pages/Settings';
+import NewLoanPage from './pages/NewLoanPage';
+import NewClientPage from './pages/NewClientPage';
+import Disbursements from './pages/Disbursements';
+import Repayments from './pages/Repayments';
+import LoanDetail from './pages/loans/LoanDetail';
+import LoanList from './pages/loans/LoanList';
+import LoanForm from './pages/loans/LoanForm';
 
 // Initialize Supabase client - use environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xfihpvkbzppaejluyqoq.supabase.co';
 const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmaWhwdmtienBwYWVqbHV5cW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg1NDQzMzgsImV4cCI6MjA0NDEyMDMzOH0.U30_ovXdjGrovUZhBeVbeXtX-Xg29BPNZF9mhz7USfM';
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Create auth context
+export const AuthContext = createContext(null);
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -30,12 +45,10 @@ const ProtectedRoute = ({ children }) => {
         } else if (data?.session) {
           console.log('Valid session found in protected route');
           setIsAuthenticated(true);
-          // Update sessionStorage for compatibility
           sessionStorage.setItem('auth', JSON.stringify(data.session));
         } else {
           console.log('No valid session found in protected route');
           setIsAuthenticated(false);
-          // Clear any stale session data
           sessionStorage.removeItem('auth');
         }
       } catch (err) {
@@ -50,29 +63,23 @@ const ProtectedRoute = ({ children }) => {
   }, []);
 
   if (isLoading) {
-    // Show loading indicator while checking authentication
     return (
-      <div className="container">
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-blue-600 text-lg">Loading...</div>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-blue-600 text-lg">Loading...</div>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    // Redirect to login if not authenticated, preserving the intended URL
     return <Navigate to="/" state={{ from: location.pathname }} replace />;
   }
 
-  // Render the protected component if authenticated
   return children;
 };
 
 const App = () => {
   const [session, setSession] = useState(null);
   
-  // Set up auth state change listener
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
@@ -87,67 +94,70 @@ const App = () => {
       }
     );
 
-    // Check initial session on mount
     const getInitialSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data?.session || null);
+      try {
+        const { data } = await supabase.auth.getSession();
+        console.log("Initial session check:", data);
+        setSession(data?.session || null);
+      } catch (error) {
+        console.error("Error getting initial session:", error);
+      }
     };
     
     getInitialSession();
 
-    // Clean up subscription on unmount
     return () => {
-      if (authListener && authListener.subscription) {
+      if (authListener?.subscription) {
         authListener.subscription.unsubscribe();
       }
     };
   }, []);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Login setSession={setSession} supabase={supabase} />} />
-        {/* Add other public routes as needed */}
-        {/* <Route path="/register" element={<Register supabase={supabase} />} /> */}
-        {/* <Route path="/forgot-password" element={<ForgotPassword supabase={supabase} />} /> */}
+    <AlertProvider>
+      <AuthContext.Provider value={{ session, supabase }}>
+        <BrowserRouter>
+          <Alert /> {/* Global alert component */}
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<Login setSession={setSession} supabase={supabase} />} />
 
-        {/* Protected routes */}
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <Dashboard session={session} />
-            </ProtectedRoute>
-          } 
-        />
-        {/* Add other protected routes as needed */}
-        <Route 
-          path="/loans" 
-          element={
-            <ProtectedRoute>
-              <div>Loans Page</div> {/* Replace with your Loans component */}
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/clients" 
-          element={
-            <ProtectedRoute>
-              <div>Clients Page</div> {/* Replace with your Clients component */}
-            </ProtectedRoute>
-          } 
-        />
-        
-        {/* Catch-all route - redirect to dashboard if logged in, otherwise to login */}
-        <Route 
-          path="*" 
-          element={
-            session ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
-          } 
-        />
-      </Routes>
-    </BrowserRouter>
+            {/* Protected routes */}
+            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route path="dashboard" element={<Dashboard />} />
+              
+              {/* Loans routes */}
+              <Route path="loans" element={<LoansPage />}>
+                <Route index element={<LoanList />} />
+              </Route>
+              <Route path="loans/:id" element={<LoanDetail />} />
+              <Route path="loans/edit/:id" element={<LoanForm />} />
+              <Route path="new-loan" element={<NewLoanPage />} />
+              
+              {/* Clients routes */}
+              <Route path="clients" element={<ClientsPage />} />
+              <Route path="new-client" element={<NewClientPage />} />
+              
+              {/* Financial operations */}
+              <Route path="disbursements" element={<Disbursements />} />
+              <Route path="repayments" element={<Repayments />} />
+              
+              {/* Reports and settings */}
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+            
+            {/* Catch-all route */}
+            <Route 
+              path="*" 
+              element={
+                session ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
+              } 
+            />
+          </Routes>
+        </BrowserRouter>
+      </AuthContext.Provider>
+    </AlertProvider>
   );
 };
 

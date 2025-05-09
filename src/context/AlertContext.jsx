@@ -1,35 +1,47 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+// src/context/AlertContext.jsx
+import React, { createContext, useState, useCallback } from 'react';
 
-const AlertContext = createContext();
+// Create the Alert Context
+export const AlertContext = createContext();
 
-export const useAlerts = () => useContext(AlertContext);
-
+// Create the Alert Provider component
 export const AlertProvider = ({ children }) => {
-  const [alerts, setAlerts] = useState([]);
+  // Default alert state
+  const [alert, setAlert] = useState({
+    visible: false,
+    message: '',
+    type: 'info' // 'success', 'error', 'warning', or 'info'
+  });
 
-  const showAlert = useCallback((message, type = 'info', timeout = 5000) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    
-    setAlerts(prevAlerts => [...prevAlerts, { id, message, type }]);
-
-    if (timeout) {
-      setTimeout(() => {
-        removeAlert(id);
-      }, timeout);
-    }
-
-    return id;
+  // Show alert function
+  const showAlert = useCallback((message, type = 'info') => {
+    setAlert({
+      visible: true,
+      message,
+      type
+    });
   }, []);
 
-  const removeAlert = useCallback((id) => {
-    setAlerts(prevAlerts => prevAlerts.filter(alert => alert.id !== id));
+  // Hide alert function
+  const hideAlert = useCallback(() => {
+    setAlert(prev => ({
+      ...prev,
+      visible: false
+    }));
   }, []);
+
+  // Context value
+  const value = {
+    alert,
+    showAlert,
+    hideAlert
+  };
 
   return (
-    <AlertContext.Provider value={{ alerts, showAlert, removeAlert }}>
+    <AlertContext.Provider value={value}>
       {children}
     </AlertContext.Provider>
   );
 };
 
-export default AlertContext;
+export default AlertProvider;

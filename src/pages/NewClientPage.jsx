@@ -180,22 +180,22 @@ const NewClientPage = () => {
           </div>
           
           <div className="form-group">
-            <label htmlFor="gender">Gender*</label>
-            <select
-              id="gender"
-              name="gender"
-              value={formData.gender}
-              onChange={handleChange}
-              className={errors.gender ? 'error' : ''}
-            >
-              <option value="">Select gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-              <option value="prefer_not_to_say">Prefer not to say</option>
-            </select>
-            {errors.gender && <div className="error">{errors.gender}</div>}
-          </div>
+  <label htmlFor="gender">Gender*</label>
+  <select
+    id="gender"
+    name="gender"
+    value={formData.gender}
+    onChange={handleChange}
+    className={errors.gender ? 'error' : ''}
+    required
+  >
+    <option value="">Select gender</option>
+    <option value="Male">Male</option>
+    <option value="Female">Female</option>
+    <option value="Other">Other</option>
+  </select>
+  {errors.gender && <div className="error-message">{errors.gender}</div>}
+</div>
           
           <div className="form-group">
             <label htmlFor="date_of_birth">Date of Birth</label>

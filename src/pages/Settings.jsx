@@ -1,8 +1,10 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertContext } from '../context/AlertContext';
 import Layout from '../components/Layout';
 
 const Settings = () => {
+  const navigate = useNavigate();
   const { setAlert } = useContext(AlertContext);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('general-settings');
@@ -296,198 +298,193 @@ const Settings = () => {
   return (
     <Layout>
       <div className="container">
-        <div className="main-content">
-          <div className="content">
-            <div id="alert-container"></div>
-            <h2>System Settings</h2>
+        <div className="content">
+          <div id="alert-container"></div>
+          <h2>System Settings</h2>
+          
+          <div className="tab-container">
+            <div className="tab-buttons">
+              <button 
+                className={`tab-button ${activeTab === 'general-settings' ? 'active' : ''}`}
+                onClick={() => handleTabClick('general-settings')}
+              >
+                General
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'loan-settings' ? 'active' : ''}`}
+                onClick={() => handleTabClick('loan-settings')}
+              >
+                Loan Settings
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'user-settings' ? 'active' : ''}`}
+                onClick={() => handleTabClick('user-settings')}
+              >
+                User Management
+              </button>
+            </div>
             
-            <div className="tab-container">
-              <div className="tab-buttons">
-                <button 
-                  className={`tab-button ${activeTab === 'general-settings' ? 'active' : ''}`}
-                  onClick={() => handleTabClick('general-settings')}
-                  data-tab="general-settings"
-                >
-                  General
-                </button>
-                <button 
-                  className={`tab-button ${activeTab === 'loan-settings' ? 'active' : ''}`}
-                  onClick={() => handleTabClick('loan-settings')}
-                  data-tab="loan-settings"
-                >
-                  Loan Settings
-                </button>
-                <button 
-                  className={`tab-button ${activeTab === 'user-settings' ? 'active' : ''}`}
-                  onClick={() => handleTabClick('user-settings')}
-                  data-tab="user-settings"
-                >
-                  User Management
-                </button>
-              </div>
-              
-              <div id="general-settings" className={`tab-content ${activeTab === 'general-settings' ? 'active' : ''}`}>
-                <form id="general-settings-form" onSubmit={handleGeneralSubmit}>
-                  <div className="form-group">
-                    <label htmlFor="org-name">Organization Name</label>
-                    <input 
-                      type="text" 
-                      id="org-name" 
-                      className="form-control"
-                      value={generalSettings.organizationName}
-                      onChange={handleGeneralChange}
-                      required 
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="org-address">Address</label>
-                    <textarea 
-                      id="org-address" 
-                      className="form-control" 
-                      rows="3"
-                      value={generalSettings.address}
-                      onChange={handleGeneralChange}
-                      required
-                    ></textarea>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="org-phone">Phone Number</label>
-                    <input 
-                      type="tel" 
-                      id="org-phone" 
-                      className="form-control"
-                      value={generalSettings.phone}
-                      onChange={handleGeneralChange}
-                      required 
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="org-currency">Currency</label>
-                    <select 
-                      id="org-currency" 
-                      className="form-control"
-                      value={generalSettings.currency}
-                      onChange={handleGeneralChange}
-                      required
-                    >
-                      <option value="TZS">Tanzanian Shilling (TZS)</option>
-                      <option value="USD">US Dollar (USD)</option>
-                      <option value="KES">Kenyan Shilling (KES)</option>
-                    </select>
-                  </div>
-                  
-                  <button type="submit" className="btn btn-primary">Save Settings</button>
-                </form>
-              </div>
-              
-              <div id="loan-settings" className={`tab-content ${activeTab === 'loan-settings' ? 'active' : ''}`}>
-                <form id="loan-settings-form" onSubmit={handleLoanSubmit}>
-                  <div className="form-group">
-                    <label htmlFor="default-interest">Default Interest Rate (%)</label>
-                    <input 
-                      type="number" 
-                      id="default-interest" 
-                      className="form-control" 
-                      min="0" 
-                      step="0.01"
-                      value={loanSettings.defaultInterestRate}
-                      onChange={handleLoanChange}
-                      required 
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="default-term">Default Loan Term (months)</label>
-                    <input 
-                      type="number" 
-                      id="default-term" 
-                      className="form-control" 
-                      min="1"
-                      value={loanSettings.defaultLoanTerm}
-                      onChange={handleLoanChange}
-                      required 
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="late-fee">Late Payment Fee (%)</label>
-                    <input 
-                      type="number" 
-                      id="late-fee" 
-                      className="form-control" 
-                      min="0" 
-                      step="0.01"
-                      value={loanSettings.lateFee}
-                      onChange={handleLoanChange}
-                      required 
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="grace-period">Grace Period (days)</label>
-                    <input 
-                      type="number" 
-                      id="grace-period" 
-                      className="form-control" 
-                      min="0"
-                      value={loanSettings.gracePeriod}
-                      onChange={handleLoanChange}
-                      required 
-                    />
-                  </div>
-                  
-                  <button type="submit" className="btn btn-primary">Save Settings</button>
-                </form>
-              </div>
-              
-              <div id="user-settings" className={`tab-content ${activeTab === 'user-settings' ? 'active' : ''}`}>
-                <div className="user-management-header">
-                  <h3>User Management</h3>
-                  <button id="add-user-btn" className="btn btn-primary" onClick={openAddUserModal}>Add New User</button>
+            <div id="general-settings" className={`tab-content ${activeTab === 'general-settings' ? 'active' : ''}`}>
+              <form id="general-settings-form" onSubmit={handleGeneralSubmit}>
+                <div className="form-group">
+                  <label htmlFor="org-name">Organization Name</label>
+                  <input 
+                    type="text" 
+                    id="org-name" 
+                    className="form-control"
+                    value={generalSettings.organizationName}
+                    onChange={handleGeneralChange}
+                    required 
+                  />
                 </div>
                 
-                <div className="table-responsive">
-                  <table id="users-table">
-                    <thead>
-                      <tr>
-                        <th>Full Name</th>
-                        <th>Username</th>
-                        <th>Role</th>
-                        <th>Branch</th>
-                        <th>Last Updated</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody id="users-list">
-                      {users.map(user => (
-                        <tr key={user.id}>
-                          <td>{user.fullName}</td>
-                          <td>{user.username}</td>
-                          <td>{roleDisplay[user.role] || user.role}</td>
-                          <td>{user.branch}</td>
-                          <td>{user.lastUpdated}</td>
-                          <td>
-                            <button 
-                              className="btn btn-sm btn-secondary" 
-                              onClick={() => openEditUserModal(user.id)}
-                            >
-                              Edit
-                            </button>
-                            <button 
-                              className="btn btn-sm btn-danger" 
-                              onClick={() => openDeleteUserModal(user.id)}
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="form-group">
+                  <label htmlFor="org-address">Address</label>
+                  <textarea 
+                    id="org-address" 
+                    className="form-control" 
+                    rows="3"
+                    value={generalSettings.address}
+                    onChange={handleGeneralChange}
+                    required
+                  ></textarea>
                 </div>
+                
+                <div className="form-group">
+                  <label htmlFor="org-phone">Phone Number</label>
+                  <input 
+                    type="tel" 
+                    id="org-phone" 
+                    className="form-control"
+                    value={generalSettings.phone}
+                    onChange={handleGeneralChange}
+                    required 
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="org-currency">Currency</label>
+                  <select 
+                    id="org-currency" 
+                    className="form-control"
+                    value={generalSettings.currency}
+                    onChange={handleGeneralChange}
+                    required
+                  >
+                    <option value="TZS">Tanzanian Shilling (TZS)</option>
+                    <option value="USD">US Dollar (USD)</option>
+                    <option value="KES">Kenyan Shilling (KES)</option>
+                  </select>
+                </div>
+                
+                <button type="submit" className="btn btn-primary">Save Settings</button>
+              </form>
+            </div>
+            
+            <div id="loan-settings" className={`tab-content ${activeTab === 'loan-settings' ? 'active' : ''}`}>
+              <form id="loan-settings-form" onSubmit={handleLoanSubmit}>
+                <div className="form-group">
+                  <label htmlFor="default-interest">Default Interest Rate (%)</label>
+                  <input 
+                    type="number" 
+                    id="default-interest" 
+                    className="form-control" 
+                    min="0" 
+                    step="0.01"
+                    value={loanSettings.defaultInterestRate}
+                    onChange={handleLoanChange}
+                    required 
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="default-term">Default Loan Term (months)</label>
+                  <input 
+                    type="number" 
+                    id="default-term" 
+                    className="form-control" 
+                    min="1"
+                    value={loanSettings.defaultLoanTerm}
+                    onChange={handleLoanChange}
+                    required 
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="late-fee">Late Payment Fee (%)</label>
+                  <input 
+                    type="number" 
+                    id="late-fee" 
+                    className="form-control" 
+                    min="0" 
+                    step="0.01"
+                    value={loanSettings.lateFee}
+                    onChange={handleLoanChange}
+                    required 
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="grace-period">Grace Period (days)</label>
+                  <input 
+                    type="number" 
+                    id="grace-period" 
+                    className="form-control" 
+                    min="0"
+                    value={loanSettings.gracePeriod}
+                    onChange={handleLoanChange}
+                    required 
+                  />
+                </div>
+                
+                <button type="submit" className="btn btn-primary">Save Settings</button>
+              </form>
+            </div>
+            
+            <div id="user-settings" className={`tab-content ${activeTab === 'user-settings' ? 'active' : ''}`}>
+              <div className="user-management-header">
+                <h3>User Management</h3>
+                <button id="add-user-btn" className="btn btn-primary" onClick={openAddUserModal}>Add New User</button>
+              </div>
+              
+              <div className="table-responsive">
+                <table id="users-table">
+                  <thead>
+                    <tr>
+                      <th>Full Name</th>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Branch</th>
+                      <th>Last Updated</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="users-list">
+                    {users.map(user => (
+                      <tr key={user.id}>
+                        <td>{user.fullName}</td>
+                        <td>{user.username}</td>
+                        <td>{roleDisplay[user.role] || user.role}</td>
+                        <td>{user.branch}</td>
+                        <td>{user.lastUpdated}</td>
+                        <td>
+                          <button 
+                            className="btn btn-sm btn-secondary" 
+                            onClick={() => openEditUserModal(user.id)}
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            className="btn btn-sm btn-danger" 
+                            onClick={() => openDeleteUserModal(user.id)}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

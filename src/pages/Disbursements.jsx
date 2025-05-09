@@ -71,19 +71,19 @@ const Disbursements = () => {
       
       // Fetch pending loans (loans with status 'Approved' but not in disbursedLoanIds)
       const { data: pendingLoans, error: pendingError } = await supabase
-        .from('loans')
-        .select(`
-          id,
-          loan_number,
-          client_id,
-          principal_amount,
-          clients:client_id(first_name, last_name),
-          status,
-          approval_date,
-          term_months
-        `)
-        .eq('status', 'Approved')
-        .not('id', 'in', `(${disbursedLoanIds.join(',')})`);
+      .from('loans')
+      .select(`
+        id,
+        loan_number,
+        client_id,
+        principal_amount,
+        clients:client_id(first_name, last_name),
+        status,
+        disbursement_date,  // Changed from approval_date
+        term_months
+      `)
+      .eq('status', 'Approved')
+      .is('disbursement_date', null);
       
       if (pendingError) throw pendingError;
   
@@ -92,7 +92,7 @@ const Disbursements = () => {
         id: loan.loan_number,
         clientName: `${loan.clients.first_name} ${loan.clients.last_name}`,
         amount: loan.principal_amount,
-        approvalDate: loan.approval_date,
+        
         loanTerm: `${loan.term_months} Months`,
         status: loan.status,
         loanId: loan.id
@@ -102,21 +102,21 @@ const Disbursements = () => {
 
       // Fetch recent disbursements based on filter
       let recentQuery = supabase
-        .from('loan_disbursements')
-        .select(`
-          id,
-          loan_id,
-          amount,
-          disbursement_date,
-          method,
-          transaction_reference,
-          notes,
-          processed_at,
-          processed_by,
-          loans:loan_id(loan_number, client_id, clients:client_id(first_name, last_name)),
-          users:processed_by(email)
-        `)
-        .order('disbursement_date', { ascending: false });
+      .from('loan_disbursements')
+      .select(`
+        id,
+        loan_id,
+        amount,
+        disbursement_date,
+        method,
+        transaction_reference,
+        notes,
+        processed_at,
+        processed_by,
+        loans:loan_id(loan_number, client_id, clients:client_id(first_name, last_name)),
+        users:processed_by(email)
+      `)
+      .order('disbursement_date', { ascending: false });
 
       // Apply date filters
       const now = new Date();

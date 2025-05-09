@@ -95,27 +95,30 @@ const NewLoanPage = () => {
     setSubmitError(null);
     setSubmitSuccess(false);
     
-    // Validate the form
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
     
-    // Prepare loan data
+    // Convert term to months based on selected unit
+    const termMonths = convertToMonths(
+      parseInt(formData.term_length),
+      formData.term_unit
+    );
+    
+    // Prepare loan data matching table schema
     const loanData = {
-      ...formData,
-      loan_amount: parseFloat(formData.loan_amount),
+      client_id: formData.client_id,
+      principal_amount: parseFloat(formData.loan_amount),
       interest_rate: parseFloat(formData.interest_rate),
-      term_length: parseInt(formData.term_length),
-      collateral_value: formData.collateral_value ? parseFloat(formData.collateral_value) : null,
-      status: 'pending',
-      created_at: new Date().toISOString(),
+      term_months: termMonths,
+      disbursement_date: formData.disbursement_date,
+      payment_frequency: mapRepaymentSchedule(formData.repayment_schedule),
+      purpose: formData.purpose,
+      notes: formData.notes,
+      status: 'Pending',
       created_by: (await supabase.auth.getUser()).data.user.id
     };
     
     try {
       setLoading(true);
-      
-      // Insert the loan record
       const { data, error } = await supabase
         .from('loans')
         .insert([loanData])
@@ -124,31 +127,37 @@ const NewLoanPage = () => {
       if (error) throw error;
       
       setSubmitSuccess(true);
-      // Reset form data after successful submission
-      setFormData({
-        client_id: '',
-        loan_amount: '',
-        interest_rate: '',
-        term_length: '',
-        term_unit: 'months',
-        purpose: '',
-        disbursement_date: '',
-        repayment_schedule: 'monthly',
-        collateral_type: '',
-        collateral_value: '',
-        notes: ''
-      });
-      
-      // Redirect to the loan details page after 2 seconds
       setTimeout(() => {
         navigate(`/loans/${data[0].id}`);
       }, 2000);
       
     } catch (error) {
       console.error('Error creating loan:', error);
-      setSubmitError('Failed to create loan. Please try again.');
+      setSubmitError('Failed to create loan. ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Helper function to convert term to months
+  const convertToMonths = (value, unit) => {
+    switch(unit) {
+      case 'days': return Math.ceil(value / 30);
+      case 'weeks': return Math.ceil(value / 4);
+      case 'months': return value;
+      case 'years': return value * 12;
+      default: return value;
+    }
+  };
+  
+  // Helper function to map repayment schedule to allowed values
+  const mapRepaymentSchedule = (schedule) => {
+    switch(schedule) {
+      case 'weekly': return 'Weekly';
+      case 'biweekly': return 'Biweekly';
+      case 'monthly': return 'Monthly';
+      // Map other values to one of the allowed options
+      default: return 'Monthly';
     }
   };
 

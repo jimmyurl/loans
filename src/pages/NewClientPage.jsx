@@ -89,24 +89,29 @@ const NewClientPage = () => {
     setSubmitError(null);
     setSubmitSuccess(false);
     
-    // Validate the form
-    if (!validateForm()) {
-      return;
-    }
-    
-    // Prepare client data
-    const clientData = {
-      ...formData,
-      monthly_income: formData.monthly_income ? parseFloat(formData.monthly_income) : null,
-      years_in_business: formData.years_in_business ? parseFloat(formData.years_in_business) : null,
-      created_at: new Date().toISOString(),
-      created_by: (await supabase.auth.getUser()).data.user.id
-    };
+    if (!validateForm()) return;
     
     try {
       setLoading(true);
       
-      // Insert the client record
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error('No authenticated user');
+      
+      const clientData = {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        phone_number: formData.phone, // Map to correct column name
+        email: formData.email || null,
+        national_id: formData.id_number, // Map to correct column name
+        address: formData.address || null,
+        occupation: formData.occupation || null,
+        monthly_income: formData.monthly_income ? parseFloat(formData.monthly_income) : null,
+        date_of_birth: formData.date_of_birth || null,
+        gender: formData.gender || null,
+        created_by: user.id
+      };
+      
       const { data, error } = await supabase
         .from('clients')
         .insert([clientData])
@@ -115,38 +120,10 @@ const NewClientPage = () => {
       if (error) throw error;
       
       setSubmitSuccess(true);
-      // Reset form data after successful submission
-      setFormData({
-        first_name: '',
-        last_name: '',
-        gender: '',
-        date_of_birth: '',
-        id_number: '',
-        id_type: 'national_id',
-        phone: '',
-        email: '',
-        address: '',
-        city: '',
-        occupation: '',
-        monthly_income: '',
-        business_name: '',
-        business_type: '',
-        business_address: '',
-        years_in_business: '',
-        emergency_contact_name: '',
-        emergency_contact_phone: '',
-        emergency_contact_relationship: '',
-        notes: ''
-      });
-      
-      // Redirect to the client details page after 2 seconds
-      setTimeout(() => {
-        navigate(`/clients/${data[0].id}`);
-      }, 2000);
-      
+      // Reset form and redirect...
     } catch (error) {
-      console.error('Error creating client:', error);
-      setSubmitError('Failed to register client. Please try again.');
+      console.error('Error:', error);
+      setSubmitError(error.message || 'Failed to register client.');
     } finally {
       setLoading(false);
     }

@@ -5,76 +5,96 @@ import Layout from '../components/Layout';
 const Settings = () => {
   const { setAlert } = useContext(AlertContext);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState('general-settings');
   
+  // General settings state
   const [generalSettings, setGeneralSettings] = useState({
     organizationName: '',
-    email: '',
-    phone: '',
     address: '',
-    currency: 'USD',
-    dateFormat: 'MM/DD/YYYY',
-    timezone: 'UTC'
+    phone: '',
+    currency: 'TZS'
   });
   
+  // Loan settings state
   const [loanSettings, setLoanSettings] = useState({
     defaultInterestRate: 15,
     defaultLoanTerm: 12,
-    gracePeriod: 3,
-    latePaymentFee: 5,
-    allowMultipleLoans: false,
-    requireCollateral: true
+    lateFee: 5,
+    gracePeriod: 3
   });
   
-  const [userSettings, setUserSettings] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
+  // Users state for user management
+  const [users, setUsers] = useState([]);
+  
+  // Modal states
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  
+  // New user form state
+  const [newUserForm, setNewUserForm] = useState({
+    username: '',
+    fullName: '',
+    role: 'loan-officer',
+    branch: 'KIC'
+  });
+  
+  // Edit user form state
+  const [editUserForm, setEditUserForm] = useState({
+    id: null,
+    username: '',
+    fullName: '',
     role: '',
-    notificationsEnabled: true,
-    emailNotifications: true,
-    smsNotifications: false
+    branch: ''
   });
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         // In a real application, you would fetch this data from your API
-        // const data = await api.getSettings();
-        // setGeneralSettings(data.general);
-        // setLoanSettings(data.loan);
-        // setUserSettings(data.user);
-        
         // Simulating API delay
         setTimeout(() => {
           setGeneralSettings({
-            organizationName: 'MicroFinance Pro',
-            email: 'info@microfinancepro.com',
-            phone: '+1 (555) 123-4567',
-            address: '123 Finance St, San Francisco, CA 94107',
-            currency: 'USD',
-            dateFormat: 'MM/DD/YYYY',
-            timezone: 'America/Los_Angeles'
+            organizationName: 'Pamoja Microfinance',
+            address: '123 Finance Street, Dar es Salaam',
+            phone: '+255 123 456 789',
+            currency: 'TZS'
           });
           
           setLoanSettings({
             defaultInterestRate: 15,
             defaultLoanTerm: 12,
-            gracePeriod: 3,
-            latePaymentFee: 5,
-            allowMultipleLoans: false,
-            requireCollateral: true
+            lateFee: 5,
+            gracePeriod: 3
           });
           
-          setUserSettings({
-            firstName: 'John',
-            lastName: 'Doe',
-            email: 'john.doe@example.com',
-            role: 'Administrator',
-            notificationsEnabled: true,
-            emailNotifications: true,
-            smsNotifications: false
-          });
+          setUsers([
+            {
+              id: '1',
+              username: 'admin',
+              fullName: 'Administrator',
+              role: 'admin',
+              branch: 'HQ',
+              lastUpdated: '2025-04-15'
+            },
+            {
+              id: '2',
+              username: 'jdoe',
+              fullName: 'John Doe',
+              role: 'loan-officer',
+              branch: 'KIC',
+              lastUpdated: '2025-04-10'
+            },
+            {
+              id: '3',
+              username: 'jsmith',
+              fullName: 'Jane Smith',
+              role: 'accountant',
+              branch: 'KIC',
+              lastUpdated: '2025-04-05'
+            }
+          ]);
           
           setLoading(false);
         }, 1000);
@@ -90,8 +110,13 @@ const Settings = () => {
     fetchSettings();
   }, [setAlert]);
 
+  const handleTabClick = (tabId) => {
+    setActiveTab(tabId);
+  };
+
   const handleGeneralSubmit = (e) => {
     e.preventDefault();
+    // Save logic would go here
     setAlert({
       type: 'success',
       message: 'General settings saved successfully!'
@@ -100,54 +125,169 @@ const Settings = () => {
 
   const handleLoanSubmit = (e) => {
     e.preventDefault();
+    // Save logic would go here
     setAlert({
       type: 'success',
       message: 'Loan settings saved successfully!'
     });
   };
 
-  const handleUserSubmit = (e) => {
-    e.preventDefault();
-    setAlert({
-      type: 'success',
-      message: 'User settings saved successfully!'
-    });
-  };
-
   const handleGeneralChange = (e) => {
-    const { name, value } = e.target;
-    setGeneralSettings(prev => ({ ...prev, [name]: value }));
+    const { id, value } = e.target;
+    setGeneralSettings(prev => ({ ...prev, [id.replace('org-', '')]: value }));
   };
 
   const handleLoanChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setLoanSettings(prev => ({ 
+    const { id, value } = e.target;
+    setLoanSettings(prev => ({ ...prev, [id.replace('default-', '')]: value }));
+  };
+
+  // User management functions
+  const openAddUserModal = () => {
+    setShowAddUserModal(true);
+  };
+
+  const closeAddUserModal = () => {
+    setShowAddUserModal(false);
+    setNewUserForm({
+      username: '',
+      fullName: '',
+      role: 'loan-officer',
+      branch: 'KIC'
+    });
+  };
+
+  const handleNewUserChange = (e) => {
+    const { id, value } = e.target;
+    setNewUserForm(prev => ({ 
       ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+      [id.replace('new-user-', '')]: value 
     }));
   };
 
-  const handleUserChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setUserSettings(prev => ({ 
+  const handleAddUser = (e) => {
+    e.preventDefault();
+    
+    // Generate an ID for the new user
+    const newId = (Math.max(...users.map(user => parseInt(user.id))) + 1).toString();
+    
+    // Create a new user object
+    const newUser = {
+      id: newId,
+      username: newUserForm.username,
+      fullName: newUserForm.fullName,
+      role: newUserForm.role,
+      branch: newUserForm.branch,
+      lastUpdated: new Date().toISOString().split('T')[0]
+    };
+    
+    // Add the new user to the users array
+    setUsers(prev => [...prev, newUser]);
+    
+    // Close the modal and reset the form
+    closeAddUserModal();
+    
+    // Show success message
+    setAlert({
+      type: 'success',
+      message: 'User added successfully!'
+    });
+  };
+
+  const openEditUserModal = (userId) => {
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      setEditUserForm({
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        branch: user.branch
+      });
+      setCurrentUserId(userId);
+      setShowEditUserModal(true);
+    }
+  };
+
+  const closeEditUserModal = () => {
+    setShowEditUserModal(false);
+    setCurrentUserId(null);
+  };
+
+  const handleEditUserChange = (e) => {
+    const { id, value } = e.target;
+    setEditUserForm(prev => ({ 
       ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+      [id.replace('edit-user-', '')]: value 
     }));
   };
 
-  const tabs = [
-    { id: 'general', label: 'General Settings' },
-    { id: 'loan', label: 'Loan Settings' },
-    { id: 'user', label: 'User Settings' },
-    { id: 'users', label: 'User Management' },
-    { id: 'backup', label: 'Backup & Restore' }
-  ];
+  const handleUpdateUser = (e) => {
+    e.preventDefault();
+    
+    // Update the user in the users array
+    setUsers(prev => prev.map(user => {
+      if (user.id === currentUserId) {
+        return {
+          ...user,
+          username: editUserForm.username,
+          fullName: editUserForm.fullName,
+          role: editUserForm.role,
+          branch: editUserForm.branch,
+          lastUpdated: new Date().toISOString().split('T')[0]
+        };
+      }
+      return user;
+    }));
+    
+    // Close the modal
+    closeEditUserModal();
+    
+    // Show success message
+    setAlert({
+      type: 'success',
+      message: 'User updated successfully!'
+    });
+  };
+
+  const openDeleteUserModal = (userId) => {
+    setCurrentUserId(userId);
+    setShowDeleteUserModal(true);
+  };
+
+  const closeDeleteUserModal = () => {
+    setShowDeleteUserModal(false);
+    setCurrentUserId(null);
+  };
+
+  const handleDeleteUser = () => {
+    // Remove the user from the users array
+    setUsers(prev => prev.filter(user => user.id !== currentUserId));
+    
+    // Close the modal
+    closeDeleteUserModal();
+    
+    // Show success message
+    setAlert({
+      type: 'success',
+      message: 'User deleted successfully!'
+    });
+  };
+
+  // Role display mapping
+  const roleDisplay = {
+    'admin': 'Administrator',
+    'manager': 'Manager',
+    'loan-officer': 'Loan Officer',
+    'accountant': 'Accountant',
+    'viewer': 'Viewer'
+  };
 
   if (loading) {
     return (
       <Layout>
-        <div className="px-6 py-4 flex justify-center items-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="container">
+          <div className="loading-spinner">Loading...</div>
         </div>
       </Layout>
     );
@@ -155,550 +295,362 @@ const Settings = () => {
 
   return (
     <Layout>
-      <div className="px-6 py-4">
-        <h1 className="text-2xl font-semibold text-gray-800 mb-6">Settings</h1>
-
-        <div className="bg-white rounded-lg shadow">
-          <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
+      <div className="container">
+        <div className="main-content">
+          <div className="sidebar">
+            <h3>Quick Actions</h3>
+            <ul>
+              <li><a href="index.html">Dashboard</a></li>
+              <li><a href="new-loan.html">New Loan</a></li>
+              <li><a href="new-client.html">New Client</a></li>
+              <li><a href="disbursements.html">Disbursements</a></li>
+              <li><a href="repayments.html">Repayments</a></li>
+              <li><a href="reports.html">Generate Reports</a></li>
+            </ul>
           </div>
-
-          <div className="p-6">
-            {activeTab === 'general' && (
-              <form onSubmit={handleGeneralSubmit}>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Organization Name
-                      </label>
-                      <input
-                        type="text"
-                        name="organizationName"
-                        value={generalSettings.organizationName}
-                        onChange={handleGeneralChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={generalSettings.email}
-                        onChange={handleGeneralChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        required
-                      />
-                    </div>
+          
+          <div className="content">
+            <div id="alert-container"></div>
+            <h2>System Settings</h2>
+            
+            <div className="tab-container">
+              <div className="tab-buttons">
+                <button 
+                  className={`tab-button ${activeTab === 'general-settings' ? 'active' : ''}`}
+                  onClick={() => handleTabClick('general-settings')}
+                >
+                  General
+                </button>
+                <button 
+                  className={`tab-button ${activeTab === 'loan-settings' ? 'active' : ''}`}
+                  onClick={() => handleTabClick('loan-settings')}
+                >
+                  Loan Settings
+                </button>
+                <button 
+                  className={`tab-button ${activeTab === 'user-settings' ? 'active' : ''}`}
+                  onClick={() => handleTabClick('user-settings')}
+                >
+                  User Management
+                </button>
+              </div>
+              
+              <div id="general-settings" className={`tab-content ${activeTab === 'general-settings' ? 'active' : ''}`}>
+                <form id="general-settings-form" onSubmit={handleGeneralSubmit}>
+                  <div className="form-group">
+                    <label htmlFor="org-name">Organization Name</label>
+                    <input 
+                      type="text" 
+                      id="org-name" 
+                      className="form-control"
+                      value={generalSettings.organizationName}
+                      onChange={handleGeneralChange}
+                      required 
+                    />
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={generalSettings.phone}
-                        onChange={handleGeneralChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Address
-                      </label>
-                      <input
-                        type="text"
-                        name="address"
-                        value={generalSettings.address}
-                        onChange={handleGeneralChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                    </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="org-address">Address</label>
+                    <textarea 
+                      id="org-address" 
+                      className="form-control" 
+                      rows="3"
+                      value={generalSettings.address}
+                      onChange={handleGeneralChange}
+                      required
+                    ></textarea>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Currency
-                      </label>
-                      <select
-                        name="currency"
-                        value={generalSettings.currency}
-                        onChange={handleGeneralChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      >
-                        <option value="USD">USD - US Dollar</option>
-                        <option value="EUR">EUR - Euro</option>
-                        <option value="GBP">GBP - British Pound</option>
-                        <option value="INR">INR - Indian Rupee</option>
-                        <option value="KES">KES - Kenyan Shilling</option>
-                        <option value="NGN">NGN - Nigerian Naira</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date Format
-                      </label>
-                      <select
-                        name="dateFormat"
-                        value={generalSettings.dateFormat}
-                        onChange={handleGeneralChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      >
-                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Timezone
-                      </label>
-                      <select
-                        name="timezone"
-                        value={generalSettings.timezone}
-                        onChange={handleGeneralChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      >
-                        <option value="UTC">UTC</option>
-                        <option value="America/New_York">Eastern Time (ET)</option>
-                        <option value="America/Chicago">Central Time (CT)</option>
-                        <option value="America/Denver">Mountain Time (MT)</option>
-                        <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                        <option value="Africa/Nairobi">East Africa Time (EAT)</option>
-                      </select>
-                    </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="org-phone">Phone Number</label>
+                    <input 
+                      type="tel" 
+                      id="org-phone" 
+                      className="form-control"
+                      value={generalSettings.phone}
+                      onChange={handleGeneralChange}
+                      required 
+                    />
                   </div>
-                </div>
-
-                <div className="mt-6">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-                  >
-                    Save General Settings
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {activeTab === 'loan' && (
-              <form onSubmit={handleLoanSubmit}>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Default Interest Rate (%)
-                      </label>
-                      <input
-                        type="number"
-                        name="defaultInterestRate"
-                        value={loanSettings.defaultInterestRate}
-                        onChange={handleLoanChange}
-                        min="0"
-                        step="0.1"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Default Loan Term (months)
-                      </label>
-                      <input
-                        type="number"
-                        name="defaultLoanTerm"
-                        value={loanSettings.defaultLoanTerm}
-                        onChange={handleLoanChange}
-                        min="1"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Grace Period (days)
-                      </label>
-                      <input
-                        type="number"
-                        name="gracePeriod"
-                        value={loanSettings.gracePeriod}
-                        onChange={handleLoanChange}
-                        min="0"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Late Payment Fee (%)
-                      </label>
-                      <input
-                        type="number"
-                        name="latePaymentFee"
-                        value={loanSettings.latePaymentFee}
-                        onChange={handleLoanChange}
-                        min="0"
-                        step="0.1"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <input
-                        id="allowMultipleLoans"
-                        name="allowMultipleLoans"
-                        type="checkbox"
-                        checked={loanSettings.allowMultipleLoans}
-                        onChange={handleLoanChange}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="allowMultipleLoans" className="ml-2 block text-sm text-gray-700">
-                        Allow multiple active loans per client
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        id="requireCollateral"
-                        name="requireCollateral"
-                        type="checkbox"
-                        checked={loanSettings.requireCollateral}
-                        onChange={handleLoanChange}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="requireCollateral" className="ml-2 block text-sm text-gray-700">
-                        Require collateral for loans
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-                  >
-                    Save Loan Settings
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {activeTab === 'user' && (
-              <form onSubmit={handleUserSubmit}>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name
-                      </label>
-                      <input
-                        type="text"
-                        name="firstName"
-                        value={userSettings.firstName}
-                        onChange={handleUserChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name
-                      </label>
-                      <input
-                        type="text"
-                        name="lastName"
-                        value={userSettings.lastName}
-                        onChange={handleUserChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={userSettings.email}
-                        onChange={handleUserChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Role
-                      </label>
-                      <input
-                        type="text"
-                        name="role"
-                        value={userSettings.role}
-                        onChange={handleUserChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        disabled
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-800 mb-3">Notification Preferences</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center">
-                        <input
-                          id="notificationsEnabled"
-                          name="notificationsEnabled"
-                          type="checkbox"
-                          checked={userSettings.notificationsEnabled}
-                          onChange={handleUserChange}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="notificationsEnabled" className="ml-2 block text-sm text-gray-700">
-                          Enable all notifications
-                        </label>
-                      </div>
-                      <div className="flex items-center ml-6">
-                        <input
-                          id="emailNotifications"
-                          name="emailNotifications"
-                          type="checkbox"
-                          checked={userSettings.emailNotifications}
-                          onChange={handleUserChange}
-                          disabled={!userSettings.notificationsEnabled}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="emailNotifications" className="ml-2 block text-sm text-gray-700">
-                          Email notifications
-                        </label>
-                      </div>
-                      <div className="flex items-center ml-6">
-                        <input
-                          id="smsNotifications"
-                          name="smsNotifications"
-                          type="checkbox"
-                          checked={userSettings.smsNotifications}
-                          onChange={handleUserChange}
-                          disabled={!userSettings.notificationsEnabled}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="smsNotifications" className="ml-2 block text-sm text-gray-700">
-                          SMS notifications
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-800 mb-3">Security</h3>
-                    <button
-                      type="button"
-                      className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded mr-4"
-                      onClick={() => console.log('Change password')}
+                  
+                  <div className="form-group">
+                    <label htmlFor="org-currency">Currency</label>
+                    <select 
+                      id="org-currency" 
+                      className="form-control"
+                      value={generalSettings.currency}
+                      onChange={handleGeneralChange}
+                      required
                     >
-                      Change Password
-                    </button>
-                    <button
-                      type="button"
-                      className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded"
-                      onClick={() => console.log('Enable 2FA')}
-                    >
-                      Enable Two-Factor Authentication
-                    </button>
+                      <option value="TZS">Tanzanian Shilling (TZS)</option>
+                      <option value="USD">US Dollar (USD)</option>
+                      <option value="KES">Kenyan Shilling (KES)</option>
+                    </select>
                   </div>
-                </div>
-
-                <div className="mt-6">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-                  >
-                    Save User Settings
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {activeTab === 'users' && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-lg font-medium text-gray-800">User Management</h2>
-                  <button 
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-                    onClick={() => console.log('Add new user')}
-                  >
-                    Add New User
-                  </button>
+                  
+                  <button type="submit" className="btn btn-primary">Save Settings</button>
+                </form>
+              </div>
+              
+              <div id="loan-settings" className={`tab-content ${activeTab === 'loan-settings' ? 'active' : ''}`}>
+                <form id="loan-settings-form" onSubmit={handleLoanSubmit}>
+                  <div className="form-group">
+                    <label htmlFor="default-interest">Default Interest Rate (%)</label>
+                    <input 
+                      type="number" 
+                      id="default-interest" 
+                      className="form-control" 
+                      min="0" 
+                      step="0.01"
+                      value={loanSettings.defaultInterestRate}
+                      onChange={handleLoanChange}
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="default-term">Default Loan Term (months)</label>
+                    <input 
+                      type="number" 
+                      id="default-term" 
+                      className="form-control" 
+                      min="1"
+                      value={loanSettings.defaultLoanTerm}
+                      onChange={handleLoanChange}
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="late-fee">Late Payment Fee (%)</label>
+                    <input 
+                      type="number" 
+                      id="late-fee" 
+                      className="form-control" 
+                      min="0" 
+                      step="0.01"
+                      value={loanSettings.lateFee}
+                      onChange={handleLoanChange}
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="grace-period">Grace Period (days)</label>
+                    <input 
+                      type="number" 
+                      id="grace-period" 
+                      className="form-control" 
+                      min="0"
+                      value={loanSettings.gracePeriod}
+                      onChange={handleLoanChange}
+                      required 
+                    />
+                  </div>
+                  
+                  <button type="submit" className="btn btn-primary">Save Settings</button>
+                </form>
+              </div>
+              
+              <div id="user-settings" className={`tab-content ${activeTab === 'user-settings' ? 'active' : ''}`}>
+                <div className="user-management-header">
+                  <h3>User Management</h3>
+                  <button id="add-user-btn" className="btn btn-primary" onClick={openAddUserModal}>Add New User</button>
                 </div>
                 
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <div className="table-responsive">
+                  <table id="users-table">
+                    <thead>
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th>Full Name</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Branch</th>
+                        <th>Last Updated</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap">John Doe</td>
-                        <td className="px-6 py-4 whitespace-nowrap">john.doe@example.com</td>
-                        <td className="px-6 py-4 whitespace-nowrap">Administrator</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">Active</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button className="text-blue-600 hover:text-blue-800 mr-3">Edit</button>
-                          <button className="text-red-600 hover:text-red-800">Deactivate</button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap">Jane Smith</td>
-                        <td className="px-6 py-4 whitespace-nowrap">jane.smith@example.com</td>
-                        <td className="px-6 py-4 whitespace-nowrap">Loan Officer</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">Active</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button className="text-blue-600 hover:text-blue-800 mr-3">Edit</button>
-                          <button className="text-red-600 hover:text-red-800">Deactivate</button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap">Robert Johnson</td>
-                        <td className="px-6 py-4 whitespace-nowrap">robert.johnson@example.com</td>
-                        <td className="px-6 py-4 whitespace-nowrap">Accountant</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">Inactive</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button className="text-blue-600 hover:text-blue-800 mr-3">Edit</button>
-                          <button className="text-green-600 hover:text-green-800">Activate</button>
-                        </td>
-                      </tr>
+                    <tbody id="users-list">
+                      {users.map(user => (
+                        <tr key={user.id}>
+                          <td>{user.fullName}</td>
+                          <td>{user.username}</td>
+                          <td>{roleDisplay[user.role] || user.role}</td>
+                          <td>{user.branch}</td>
+                          <td>{user.lastUpdated}</td>
+                          <td>
+                            <button 
+                              className="btn btn-sm btn-secondary" 
+                              onClick={() => openEditUserModal(user.id)}
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              className="btn btn-sm btn-danger" 
+                              onClick={() => openDeleteUserModal(user.id)}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-            )}
-
-            {activeTab === 'backup' && (
-              <div>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-800 mb-3">Database Backup</h3>
-                    <p className="text-gray-600 mb-4">Create a backup of all your data for safekeeping or migration.</p>
-                    <button 
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-                      onClick={() => {
-                        console.log('Create backup');
-                        setAlert({
-                          type: 'success',
-                          message: 'Backup created successfully! Downloading file...'
-                        });
-                      }}
-                    >
-                      Create Backup
-                    </button>
-                  </div>
-
-                  <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-lg font-medium text-gray-800 mb-3">Restore Data</h3>
-                    <p className="text-gray-600 mb-4">Restore your system from a previous backup file.</p>
-                    <div className="flex items-center">
-                      <input
-                        type="file"
-                        id="backupFile"
-                        className="hidden"
-                        accept=".sql, .zip, .json"
-                        onChange={(e) => console.log('File selected:', e.target.files[0]?.name)}
-                      />
-                      <label 
-                        htmlFor="backupFile"
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded cursor-pointer mr-4"
-                      >
-                        Select Backup File
-                      </label>
-                      <button 
-                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded"
-                        onClick={() => {
-                          console.log('Restore from backup');
-                          setAlert({
-                            type: 'warning',
-                            message: 'Restoring from backup will replace all current data. This cannot be undone.'
-                          });
-                        }}
-                      >
-                        Restore
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-lg font-medium text-gray-800 mb-3">Data Export</h3>
-                    <p className="text-gray-600 mb-4">Export specific data in various formats.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <button 
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded text-center"
-                        onClick={() => console.log('Export clients')}
-                      >
-                        Export Clients (CSV)
-                      </button>
-                      <button 
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded text-center"
-                        onClick={() => console.log('Export loans')}
-                      >
-                        Export Loans (CSV)
-                      </button>
-                      <button 
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded text-center"
-                        onClick={() => console.log('Export transactions')}
-                      >
-                        Export Transactions (CSV)
-                      </button>
-                      <button 
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded text-center"
-                        onClick={() => console.log('Export full report')}
-                      >
-                        Export Full Report (PDF)
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="modal" style={{ display: 'block' }}>
+          <div className="modal-content">
+            <span className="close" onClick={closeAddUserModal}>&times;</span>
+            <h3>Add New User</h3>
+            <form id="add-user-form" onSubmit={handleAddUser}>
+              <div className="form-group">
+                <label htmlFor="new-user-username">Username</label>
+                <input 
+                  type="text" 
+                  id="new-user-username" 
+                  className="form-control"
+                  value={newUserForm.username}
+                  onChange={handleNewUserChange}
+                  required 
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="new-user-fullName">Full Name</label>
+                <input 
+                  type="text" 
+                  id="new-user-fullName" 
+                  className="form-control"
+                  value={newUserForm.fullName}
+                  onChange={handleNewUserChange}
+                  required 
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="new-user-role">Role</label>
+                <select 
+                  id="new-user-role" 
+                  className="form-control"
+                  value={newUserForm.role}
+                  onChange={handleNewUserChange}
+                  required
+                >
+                  <option value="admin">Administrator</option>
+                  <option value="manager">Manager</option>
+                  <option value="loan-officer">Loan Officer</option>
+                  <option value="accountant">Accountant</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="new-user-branch">Branch</label>
+                <input 
+                  type="text" 
+                  id="new-user-branch" 
+                  className="form-control" 
+                  value={newUserForm.branch}
+                  onChange={handleNewUserChange}
+                  required 
+                />
+              </div>
+              
+              <button type="submit" className="btn btn-primary">Create User</button>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Edit User Modal */}
+      {showEditUserModal && (
+        <div className="modal" style={{ display: 'block' }}>
+          <div className="modal-content">
+            <span className="close" onClick={closeEditUserModal}>&times;</span>
+            <h3>Edit User</h3>
+            <form id="edit-user-form" onSubmit={handleUpdateUser}>
+              <input type="hidden" id="edit-user-id" value={editUserForm.id} />
+              <div className="form-group">
+                <label htmlFor="edit-user-username">Username</label>
+                <input 
+                  type="text" 
+                  id="edit-user-username" 
+                  className="form-control"
+                  value={editUserForm.username}
+                  onChange={handleEditUserChange}
+                  required 
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="edit-user-fullName">Full Name</label>
+                <input 
+                  type="text" 
+                  id="edit-user-fullName" 
+                  className="form-control"
+                  value={editUserForm.fullName}
+                  onChange={handleEditUserChange}
+                  required 
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="edit-user-role">Role</label>
+                <select 
+                  id="edit-user-role" 
+                  className="form-control"
+                  value={editUserForm.role}
+                  onChange={handleEditUserChange}
+                  required
+                >
+                  <option value="admin">Administrator</option>
+                  <option value="manager">Manager</option>
+                  <option value="loan-officer">Loan Officer</option>
+                  <option value="accountant">Accountant</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="edit-user-branch">Branch</label>
+                <input 
+                  type="text" 
+                  id="edit-user-branch" 
+                  className="form-control"
+                  value={editUserForm.branch}
+                  onChange={handleEditUserChange}
+                  required 
+                />
+              </div>
+              
+              <button type="submit" className="btn btn-primary">Update User</button>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete User Confirmation Modal */}
+      {showDeleteUserModal && (
+        <div className="modal" style={{ display: 'block' }}>
+          <div className="modal-content">
+            <span className="close" onClick={closeDeleteUserModal}>&times;</span>
+            <h3>Confirm Delete</h3>
+            <p>Are you sure you want to delete this user? This action cannot be undone.</p>
+            <input type="hidden" id="delete-user-id" value={currentUserId} />
+            <div className="modal-actions">
+              <button id="confirm-delete" className="btn btn-danger" onClick={handleDeleteUser}>Delete User</button>
+              <button id="cancel-delete" className="btn btn-secondary" onClick={closeDeleteUserModal}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };

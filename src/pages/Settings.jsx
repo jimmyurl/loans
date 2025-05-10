@@ -51,6 +51,7 @@ const Settings = () => {
     // Users state for user management
     const [users, setUsers] = useState([]);
     const [userLoading, setUserLoading] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
 
     // Modal states
     const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -76,6 +77,17 @@ const Settings = () => {
         role: '',
         branch: ''
     });
+
+    useEffect(() => {
+        const fetchCurrentUser = async () => {
+            const { data } = await supabase.auth.getSession();
+            if (data?.session?.user) {
+                setCurrentUser(data.session.user);
+            }
+        };
+
+        fetchCurrentUser();
+    }, []);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -242,53 +254,63 @@ const Settings = () => {
     };
 
     const handleAddUser = async (e) => {
-        e.preventDefault();
-        try {
-            // Step 1: Create user in auth.users via Supabase auth
-            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-                email: newUserForm.email,
-                password: newUserForm.password,
-                email_confirm: true // Skip email confirmation
-            });
-
-            if (authError) throw authError;
-            
-            if (!authData || !authData.user) {
-                throw new Error('Failed to create user');
-            }
-
-            // Step 2: Add user profile to user_profiles table
-            const { error: profileError } = await supabase
-                .from('user_profiles')
-                .insert({
-                    user_id: authData.user.id,
-                    username: newUserForm.username,
-                    full_name: newUserForm.fullName,
-                    role: newUserForm.role,
-                    branch: newUserForm.branch
-                });
-
-            if (profileError) throw profileError;
-
-            // Refresh user list
-            await fetchUsers();
-
-            // Close the modal and reset the form
-            closeAddUserModal();
-
-            // Show success message
-            displayAlert({
-                type: 'success',
-                message: 'User added successfully!'
-            });
-        } catch (error) {
-            console.error('Error adding user:', error);
-            displayAlert({
-                type: 'error',
-                message: `Failed to add user: ${error.message}`
-            });
-        }
-    };
+      e.preventDefault();
+      try {
+          // Step 1: Sign up user via signup method
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+              email: newUserForm.email,
+              password: newUserForm.password,
+              options: {
+                  data: {
+                      username: newUserForm.username,
+                      full_name: newUserForm.fullName,
+                      role: newUserForm.role,
+                      branch: newUserForm.branch
+                  }
+              }
+          });
+  
+          if (authError) throw authError;
+          
+          if (!authData || !authData.user) {
+              throw new Error('Failed to create user');
+          }
+  
+          // Wait for auth user to be fully created before inserting the profile
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Step 2: Add user profile to user_profiles table
+          const { error: profileError } = await supabase
+              .from('user_profiles')
+              .insert({
+                  user_id: authData.user.id,
+                  username: newUserForm.username,
+                  full_name: newUserForm.fullName,
+                  role: newUserForm.role,
+                  branch: newUserForm.branch
+              });
+  
+          if (profileError) throw profileError;
+  
+          // Refresh user list
+          await fetchUsers();
+  
+          // Close the modal and reset the form
+          closeAddUserModal();
+  
+          // Show success message
+          displayAlert({
+              type: 'success',
+              message: 'User added successfully! They will need to confirm their email to log in.'
+          });
+      } catch (error) {
+          console.error('Error adding user:', error);
+          displayAlert({
+              type: 'error',
+              message: `Failed to add user: ${error.message}`
+          });
+      }
+  };
 
     const openEditUserModal = (userId) => {
         const user = users.find(u => u.id === userId);
@@ -367,19 +389,29 @@ const Settings = () => {
 
     const handleDeleteUser = async () => {
         try {
-            // Delete user from user_profiles first (due to foreign key constraint)
+            // Create a server-side function to handle user deletion securely
+            const { error } = await supabase.functions.invoke('delete-user', {
+                body: { user_id: currentUserId }
+            });
+
+            if (error) throw error;
+
+            // If the server-side function doesn't exist yet, let the user know
+            if (!supabase.functions) {
+                displayAlert({
+                    type: 'warning',
+                    message: 'User deletion requires a server function. Please implement the edge function or contact your administrator.'
+                });
+                return;
+            }
+
+            // As a fallback, only delete from user_profiles
             const { error: profileError } = await supabase
                 .from('user_profiles')
                 .delete()
                 .eq('user_id', currentUserId);
 
             if (profileError) throw profileError;
-
-            // Delete user from auth.users
-            // Note: In production, you might want to soft-delete users instead
-            const { error: authError } = await supabase.auth.admin.deleteUser(currentUserId);
-            
-            if (authError) throw authError;
 
             // Refresh user list
             await fetchUsers();
@@ -390,7 +422,7 @@ const Settings = () => {
             // Show success message
             displayAlert({
                 type: 'success',
-                message: 'User deleted successfully!'
+                message: 'User removed from profiles successfully!'
             });
         } catch (error) {
             console.error('Error deleting user:', error);
@@ -842,8 +874,8 @@ const Settings = () => {
                 </div>
             )}
 
-            {/* Edit User Modal */}
-            {showEditUserModal && (
+           {/* Edit User Modal */}
+           {showEditUserModal && (
                 <div className="modal" style={modalStyles.modal}>
                     <div className="modal-content" style={modalStyles.modalContent}>
                         <span className="close" style={modalStyles.closeButton} onClick={closeEditUserModal}>&times;</span>
@@ -860,75 +892,86 @@ const Settings = () => {
                                     required
                                 />
                             </div>
-
                             <div className="form-group">
-                                <label htmlFor="edit-user-fullName">Full Name</label>
-                                <input
-                                    type="text"
-                                    id="edit-user-fullName"
-                                    className="form-control"
-                                    value={editUserForm.fullName}
-                                    onChange={handleEditUserChange}
-                                    required
-                                />
-                            </div>
+    <label htmlFor="edit-user-username">Username</label>
+    <input
+        type="text"
+        id="edit-user-username"
+        className="form-control"
+        value={editUserForm.username}
+        onChange={handleEditUserChange}
+        required
+    />
+</div>
 
-                            <div className="form-group">
-                                <label htmlFor="edit-user-role">Role</label>
-                                <select
-                                    id="edit-user-role"
-                                    className="form-control"
-                                    value={editUserForm.role}
-                                    onChange={handleEditUserChange}
-                                    required
-                                >
-                                    <option value="admin">Administrator</option>
-                                    <option value="manager">Manager</option>
-                                    <option value="loan_officer">Loan Officer</option>
-                                    <option value="accountant">Accountant</option>
-                                    <option value="viewer">Viewer</option>
-                                </select>
-                            </div>
+<div className="form-group">
+    <label htmlFor="edit-user-fullName">Full Name</label>
+    <input
+        type="text"
+        id="edit-user-fullName"
+        className="form-control"
+        value={editUserForm.fullName}
+        onChange={handleEditUserChange}
+        required
+    />
+</div>
 
-                            <div className="form-group">
-                                <label htmlFor="edit-user-branch">Branch</label>
-                                <select
-                                    id="edit-user-branch"
-                                    className="form-control"
-                                    value={editUserForm.branch}
-                                    onChange={handleEditUserChange}
-                                    required
-                                >
-                                    <option value="HQ">Headquarters</option>
-                                    <option value="KIC">Kariakoo Branch</option>
-                                    <option value="MWN">Mwananyamala Branch</option>
-                                    <option value="DSM">Dar es Salaam Main</option>
-                                </select>
-                            </div>
+<div className="form-group">
+    <label htmlFor="edit-user-role">Role</label>
+    <select
+        id="edit-user-role"
+        className="form-control"
+        value={editUserForm.role}
+        onChange={handleEditUserChange}
+        required
+    >
+        <option value="admin">Administrator</option>
+        <option value="manager">Manager</option>
+        <option value="loan_officer">Loan Officer</option>
+        <option value="accountant">Accountant</option>
+        <option value="viewer">Viewer</option>
+    </select>
+</div>
 
-                            <button type="submit" className="btn btn-primary">Update User</button>
-                            <button type="button" className="btn btn-secondary" onClick={closeEditUserModal}>Cancel</button>
-                        </form>
-                    </div>
-                </div>
-            )}
+<div className="form-group">
+    <label htmlFor="edit-user-branch">Branch</label>
+    <select
+        id="edit-user-branch"
+        className="form-control"
+        value={editUserForm.branch}
+        onChange={handleEditUserChange}
+        required
+    >
+        <option value="HQ">Headquarters</option>
+        <option value="KIC">Kariakoo Branch</option>
+        <option value="MWN">Mwananyamala Branch</option>
+        <option value="DSM">Dar es Salaam Main</option>
+    </select>
+</div>
 
-            {/* Delete User Modal */}
-            {showDeleteUserModal && (
-                <div className="modal" style={modalStyles.modal}>
-                    <div className="modal-content" style={modalStyles.modalContent}>
-                        <span className="close" style={modalStyles.closeButton} onClick={closeDeleteUserModal}>&times;</span>
-                        <h3>Delete User</h3>
-                        <p>Are you sure you want to delete this user? This action cannot be undone.</p>
-                        <div className="modal-actions">
-                            <button className="btn btn-danger" onClick={handleDeleteUser}>Delete</button>
-                            <button className="btn btn-secondary" onClick={closeDeleteUserModal}>Cancel</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+<button type="submit" className="btn btn-primary">Update User</button>
+<button type="button" className="btn btn-secondary" onClick={closeEditUserModal}>Cancel</button>
+</form>
+</div>
+</div>
+)}
+
+{/* Delete User Modal */}
+{showDeleteUserModal && (
+<div className="modal" style={modalStyles.modal}>
+    <div className="modal-content" style={modalStyles.modalContent}>
+        <span className="close" style={modalStyles.closeButton} onClick={closeDeleteUserModal}>&times;</span>
+        <h3>Confirm User Deletion</h3>
+        <p>Are you sure you want to delete this user? This action cannot be undone.</p>
+        <div className="modal-buttons">
+            <button className="btn btn-danger" onClick={handleDeleteUser}>Delete User</button>
+            <button className="btn btn-secondary" onClick={closeDeleteUserModal}>Cancel</button>
         </div>
-    );
+    </div>
+</div>
+)}
+</div>
+);
 };
 
 export default Settings;

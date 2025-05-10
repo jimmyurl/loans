@@ -1,646 +1,934 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertContext } from '../context/AlertContext';
-import Layout from '../components/Layout';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xfihpvkbzppaejluyqoq.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmaWhwdmtienBwYWVqbHV5cW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg1NDQzMzgsImV4cCI6MjA0NDEyMDMzOH0.U30_ovXdjGrovUZhBeVbeXtX-Xg29BPNZF9mhz7USfM';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Create a fallback alert function if context is not available
+const showAlert = (message, type = 'info') => {
+    // Simple fallback alert using browser's alert
+    console.log(`${type.toUpperCase()}: ${message}`);
+    // You can replace this with a custom toast notification or other UI feedback
+    if (type === 'error') {
+        alert(`Error: ${message}`);
+    }
+};
 
 const Settings = () => {
-  const navigate = useNavigate();
-  const { setAlert } = useContext(AlertContext);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('general-settings');
-  
-  // General settings state
-  const [generalSettings, setGeneralSettings] = useState({
-    organizationName: '',
-    address: '',
-    phone: '',
-    currency: 'TZS'
-  });
-  
-  // Loan settings state
-  const [loanSettings, setLoanSettings] = useState({
-    defaultInterestRate: 15,
-    defaultLoanTerm: 12,
-    lateFee: 5,
-    gracePeriod: 3
-  });
-  
-  // Users state for user management
-  const [users, setUsers] = useState([]);
-  
-  // Modal states
-  const [showAddUserModal, setShowAddUserModal] = useState(false);
-  const [showEditUserModal, setShowEditUserModal] = useState(false);
-  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState(null);
-  
-  // New user form state
-  const [newUserForm, setNewUserForm] = useState({
-    username: '',
-    fullName: '',
-    role: 'loan-officer',
-    branch: 'KIC'
-  });
-  
-  // Edit user form state
-  const [editUserForm, setEditUserForm] = useState({
-    id: null,
-    username: '',
-    fullName: '',
-    role: '',
-    branch: ''
-  });
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        // In a real application, you would fetch this data from your API
-        // Simulating API delay
-        setTimeout(() => {
-          setGeneralSettings({
-            organizationName: 'Pamoja Microfinance',
-            address: '123 Finance Street, Dar es Salaam',
-            phone: '+255 123 456 789',
-            currency: 'TZS'
-          });
-          
-          setLoanSettings({
-            defaultInterestRate: 15,
-            defaultLoanTerm: 12,
-            lateFee: 5,
-            gracePeriod: 3
-          });
-          
-          setUsers([
-            {
-              id: '1',
-              username: 'admin',
-              fullName: 'Administrator',
-              role: 'admin',
-              branch: 'HQ',
-              lastUpdated: '2025-04-15'
-            },
-            {
-              id: '2',
-              username: 'jdoe',
-              fullName: 'John Doe',
-              role: 'loan-officer',
-              branch: 'KIC',
-              lastUpdated: '2025-04-10'
-            },
-            {
-              id: '3',
-              username: 'jsmith',
-              fullName: 'Jane Smith',
-              role: 'accountant',
-              branch: 'KIC',
-              lastUpdated: '2025-04-05'
-            }
-          ]);
-          
-          setLoading(false);
-        }, 1000);
-      } catch (error) {
-        setAlert({
-          type: 'error',
-          message: 'Failed to load settings. Please try again later.'
-        });
-        setLoading(false);
-      }
+    const navigate = useNavigate();
+    
+    // Add local alert state if context is not available
+    const [localAlert, setLocalAlert] = useState(null);
+    
+    // Function to display alerts safely
+    const displayAlert = (alertData) => {
+        setLocalAlert(alertData);
+        showAlert(alertData.message, alertData.type);
     };
 
-    fetchSettings();
-  }, [setAlert]);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('general-settings');
 
-  const handleTabClick = (tabId) => {
-    setActiveTab(tabId);
-  };
-
-  const handleGeneralSubmit = (e) => {
-    e.preventDefault();
-    // Save logic would go here
-    setAlert({
-      type: 'success',
-      message: 'General settings saved successfully!'
+    // General settings state
+    const [generalSettings, setGeneralSettings] = useState({
+        organizationName: '',
+        address: '',
+        phone: '',
+        currency: 'TZS'
     });
-  };
 
-  const handleLoanSubmit = (e) => {
-    e.preventDefault();
-    // Save logic would go here
-    setAlert({
-      type: 'success',
-      message: 'Loan settings saved successfully!'
+    // Loan settings state
+    const [loanSettings, setLoanSettings] = useState({
+        defaultInterestRate: 15,
+        defaultLoanTerm: 12,
+        lateFee: 5,
+        gracePeriod: 3
     });
-  };
 
-  const handleGeneralChange = (e) => {
-    const { id, value } = e.target;
-    setGeneralSettings(prev => ({ ...prev, [id.replace('org-', '')]: value }));
-  };
+    // Users state for user management
+    const [users, setUsers] = useState([]);
+    const [userLoading, setUserLoading] = useState(false);
 
-  const handleLoanChange = (e) => {
-    const { id, value } = e.target;
-    setLoanSettings(prev => ({ ...prev, [id.replace('default-', '')]: value }));
-  };
+    // Modal states
+    const [showAddUserModal, setShowAddUserModal] = useState(false);
+    const [showEditUserModal, setShowEditUserModal] = useState(false);
+    const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState(null);
+
+    // New user form state
+    const [newUserForm, setNewUserForm] = useState({
+        email: '',
+        password: '',
+        username: '',
+        fullName: '',
+        role: 'loan_officer',
+        branch: 'KIC'
+    });
+
+    // Edit user form state
+    const [editUserForm, setEditUserForm] = useState({
+        id: null,
+        username: '',
+        fullName: '',
+        role: '',
+        branch: ''
+    });
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                // Fetch organization settings (This would come from your database in a real app)
+                // For now, using placeholder data
+                setGeneralSettings({
+                    organizationName: 'Pamoja Microfinance',
+                    address: '123 Finance Street, Dar es Salaam',
+                    phone: '+255 123 456 789',
+                    currency: 'TZS'
+                });
+
+                setLoanSettings({
+                    defaultInterestRate: 15,
+                    defaultLoanTerm: 12,
+                    lateFee: 5,
+                    gracePeriod: 3
+                });
+
+                // Fetch users from Supabase
+                await fetchUsers();
+                
+                setLoading(false);
+            } catch (error) {
+                console.error('Error fetching settings:', error);
+                displayAlert({
+                    type: 'error',
+                    message: 'Failed to load settings. Please try again later.'
+                });
+                setLoading(false);
+            }
+        };
+
+        fetchSettings();
+    }, []);
+
+    const fetchUsers = async () => {
+        setUserLoading(true);
+        try {
+            // Query user_profiles table in Supabase
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .select('user_id, username, full_name, role, branch, updated_at');
+
+            if (error) {
+                throw error;
+            }
+
+            // Format user data
+            const formattedUsers = data.map(user => ({
+                id: user.user_id,
+                username: user.username,
+                fullName: user.full_name,
+                role: user.role,
+                branch: user.branch,
+                lastUpdated: new Date(user.updated_at).toISOString().split('T')[0]
+            }));
+
+            setUsers(formattedUsers);
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            displayAlert({
+                type: 'error',
+                message: 'Failed to load users. Please try again later.'
+            });
+        } finally {
+            setUserLoading(false);
+        }
+    };
+
+    const handleTabClick = (tabId) => {
+        setActiveTab(tabId);
+    };
+
+    const handleGeneralSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            // In a real application, you would update these settings in your database
+            // For example:
+            // await supabase.from('organization_settings').upsert({...generalSettings});
+            
+            displayAlert({
+                type: 'success',
+                message: 'General settings saved successfully!'
+            });
+        } catch (error) {
+            console.error('Error saving general settings:', error);
+            displayAlert({
+                type: 'error',
+                message: 'Failed to save general settings.'
+            });
+        }
+    };
+
+    const handleLoanSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            // In a real application, you would update these settings in your database
+            // For example:
+            // await supabase.from('loan_settings').upsert({...loanSettings});
+            
+            displayAlert({
+                type: 'success',
+                message: 'Loan settings saved successfully!'
+            });
+        } catch (error) {
+            console.error('Error saving loan settings:', error);
+            displayAlert({
+                type: 'error',
+                message: 'Failed to save loan settings.'
+            });
+        }
+    };
+
+    const handleGeneralChange = (e) => {
+        const { id, value } = e.target;
+        setGeneralSettings(prev => ({ ...prev, [id.replace('org-', '')]: value }));
+    };
+
+    const handleLoanChange = (e) => {
+        const { id, value } = e.target;
+        setLoanSettings(prev => ({ ...prev, [id.replace('default-', '')]: value }));
+    };
 
   // User management functions
-  const openAddUserModal = () => {
-    setShowAddUserModal(true);
-  };
+    const openAddUserModal = () => {
+        // Reset the new user form completely to ensure no leftover data
+        setNewUserForm({
+            email: '',
+            password: '',
+            username: '',
+            fullName: '',
+            role: 'loan_officer',
+            branch: 'KIC'
+        });
+        
+        // Make sure edit form is cleared too to prevent any cross-contamination
+        setEditUserForm({
+            id: null,
+            username: '',
+            fullName: '',
+            role: '',
+            branch: ''
+        });
+        
+        // Reset current user ID
+        setCurrentUserId(null);
+        
+        // Now open the modal
+        setShowAddUserModal(true);
+    };
 
-  const closeAddUserModal = () => {
-    setShowAddUserModal(false);
-    setNewUserForm({
-      username: '',
-      fullName: '',
-      role: 'loan-officer',
-      branch: 'KIC'
-    });
-  };
+    const closeAddUserModal = () => {
+        setShowAddUserModal(false);
+    };
 
-  const handleNewUserChange = (e) => {
-    const { id, value } = e.target;
-    setNewUserForm(prev => ({ 
-      ...prev, 
-      [id.replace('new-user-', '')]: value 
-    }));
-  };
+    const handleNewUserChange = (e) => {
+        const { id, value } = e.target;
+        setNewUserForm(prev => ({
+            ...prev,
+            [id.replace('new-user-', '')]: value
+        }));
+    };
 
-  const handleAddUser = (e) => {
-    e.preventDefault();
-    
-    // Generate an ID for the new user
-    const newId = (Math.max(...users.map(user => parseInt(user.id))) + 1).toString();
-    
-    // Create a new user object
-    const newUser = {
-      id: newId,
-      username: newUserForm.username,
-      fullName: newUserForm.fullName,
-      role: newUserForm.role,
-      branch: newUserForm.branch,
-      lastUpdated: new Date().toISOString().split('T')[0]
+    const handleAddUser = async (e) => {
+        e.preventDefault();
+        try {
+            // Step 1: Create user in auth.users via Supabase auth
+            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                email: newUserForm.email,
+                password: newUserForm.password,
+                email_confirm: true // Skip email confirmation
+            });
+
+            if (authError) throw authError;
+            
+            if (!authData || !authData.user) {
+                throw new Error('Failed to create user');
+            }
+
+            // Step 2: Add user profile to user_profiles table
+            const { error: profileError } = await supabase
+                .from('user_profiles')
+                .insert({
+                    user_id: authData.user.id,
+                    username: newUserForm.username,
+                    full_name: newUserForm.fullName,
+                    role: newUserForm.role,
+                    branch: newUserForm.branch
+                });
+
+            if (profileError) throw profileError;
+
+            // Refresh user list
+            await fetchUsers();
+
+            // Close the modal and reset the form
+            closeAddUserModal();
+
+            // Show success message
+            displayAlert({
+                type: 'success',
+                message: 'User added successfully!'
+            });
+        } catch (error) {
+            console.error('Error adding user:', error);
+            displayAlert({
+                type: 'error',
+                message: `Failed to add user: ${error.message}`
+            });
+        }
+    };
+
+    const openEditUserModal = (userId) => {
+        const user = users.find(u => u.id === userId);
+        if (user) {
+            setEditUserForm({
+                id: user.id,
+                username: user.username,
+                fullName: user.fullName,
+                role: user.role,
+                branch: user.branch
+            });
+            setCurrentUserId(userId);
+            setShowEditUserModal(true);
+        }
+    };
+
+    const closeEditUserModal = () => {
+        setShowEditUserModal(false);
+        setCurrentUserId(null);
+    };
+
+    const handleEditUserChange = (e) => {
+        const { id, value } = e.target;
+        setEditUserForm(prev => ({
+            ...prev,
+            [id.replace('edit-user-', '')]: value
+        }));
+    };
+
+    const handleUpdateUser = async (e) => {
+        e.preventDefault();
+        try {
+            // Update user in user_profiles table
+            const { error } = await supabase
+                .from('user_profiles')
+                .update({
+                    username: editUserForm.username,
+                    full_name: editUserForm.fullName,
+                    role: editUserForm.role,
+                    branch: editUserForm.branch,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('user_id', currentUserId);
+
+            if (error) throw error;
+
+            // Refresh user list
+            await fetchUsers();
+
+            // Close the modal
+            closeEditUserModal();
+
+            // Show success message
+            displayAlert({
+                type: 'success',
+                message: 'User updated successfully!'
+            });
+        } catch (error) {
+            console.error('Error updating user:', error);
+            displayAlert({
+                type: 'error',
+                message: `Failed to update user: ${error.message}`
+            });
+        }
+    };
+
+    const openDeleteUserModal = (userId) => {
+        setCurrentUserId(userId);
+        setShowDeleteUserModal(true);
+    };
+
+    const closeDeleteUserModal = () => {
+        setShowDeleteUserModal(false);
+        setCurrentUserId(null);
+    };
+
+    const handleDeleteUser = async () => {
+        try {
+            // Delete user from user_profiles first (due to foreign key constraint)
+            const { error: profileError } = await supabase
+                .from('user_profiles')
+                .delete()
+                .eq('user_id', currentUserId);
+
+            if (profileError) throw profileError;
+
+            // Delete user from auth.users
+            // Note: In production, you might want to soft-delete users instead
+            const { error: authError } = await supabase.auth.admin.deleteUser(currentUserId);
+            
+            if (authError) throw authError;
+
+            // Refresh user list
+            await fetchUsers();
+
+            // Close the modal
+            closeDeleteUserModal();
+
+            // Show success message
+            displayAlert({
+                type: 'success',
+                message: 'User deleted successfully!'
+            });
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            displayAlert({
+                type: 'error',
+                message: `Failed to delete user: ${error.message}`
+            });
+        }
+    };
+
+    // Role display mapping
+    const roleDisplay = {
+        'admin': 'Administrator',
+        'manager': 'Manager',
+        'loan_officer': 'Loan Officer',
+        'accountant': 'Accountant',
+        'viewer': 'Viewer'
+    };
+
+    // CSS styles for tab transitions
+    const tabStyles = {
+        tabContainer: {
+            marginTop: '2rem'
+        },
+        tabButtons: {
+            display: 'flex',
+            borderBottom: '1px solid #dee2e6',
+            marginBottom: '1rem'
+        },
+        tabButton: {
+            padding: '0.75rem 1.25rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: '2px solid transparent',
+            cursor: 'pointer',
+            fontWeight: '500',
+            transition: 'all 0.2s'
+        },
+        activeTabButton: {
+            borderBottom: '2px solid #007bff',
+            color: '#007bff'
+        },
+        tabContent: {
+            display: 'none',
+            padding: '1rem 0'
+        },
+        activeTabContent: {
+            display: 'block',
+            animation: 'fadeIn 0.3s ease-out'
+        },
+        '@keyframes fadeIn': {
+            from: { opacity: 0 },
+            to: { opacity: 1 }
+        }
     };
     
-    // Add the new user to the users array
-    setUsers(prev => [...prev, newUser]);
+    // Modal styles for centered positioning
+    const modalStyles = {
+        modal: {
+            display: 'block',
+            position: 'fixed',
+            zIndex: 1000,
+            left: 0,
+            top: 0,
+            width: '100%',
+            height: '100%',
+            overflow: 'auto',
+            backgroundColor: 'rgba(0,0,0,0.4)',
+        },
+        modalContent: {
+            backgroundColor: '#fff',
+            margin: '10% auto', // This centers it vertically with some space at the top
+            padding: '20px',
+            border: '1px solid #888',
+            width: '80%',
+            maxWidth: '600px',
+            borderRadius: '5px',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+            position: 'relative',
+            maxHeight: '80vh',
+            overflow: 'auto'
+        },
+        closeButton: {
+            position: 'absolute',
+            right: '15px',
+            top: '10px',
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+        }
+    };
     
-    // Close the modal and reset the form
-    closeAddUserModal();
-    
-    // Show success message
-    setAlert({
-      type: 'success',
-      message: 'User added successfully!'
-    });
-  };
-
-  const openEditUserModal = (userId) => {
-    const user = users.find(u => u.id === userId);
-    if (user) {
-      setEditUserForm({
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName,
-        role: user.role,
-        branch: user.branch
-      });
-      setCurrentUserId(userId);
-      setShowEditUserModal(true);
+    if (loading) {
+        return (
+            <div className="container">
+                <div className="loading-spinner">Loading...</div>
+            </div>
+        );
     }
-  };
 
-  const closeEditUserModal = () => {
-    setShowEditUserModal(false);
-    setCurrentUserId(null);
-  };
-
-  const handleEditUserChange = (e) => {
-    const { id, value } = e.target;
-    setEditUserForm(prev => ({ 
-      ...prev, 
-      [id.replace('edit-user-', '')]: value 
-    }));
-  };
-
-  const handleUpdateUser = (e) => {
-    e.preventDefault();
-    
-    // Update the user in the users array
-    setUsers(prev => prev.map(user => {
-      if (user.id === currentUserId) {
-        return {
-          ...user,
-          username: editUserForm.username,
-          fullName: editUserForm.fullName,
-          role: editUserForm.role,
-          branch: editUserForm.branch,
-          lastUpdated: new Date().toISOString().split('T')[0]
-        };
-      }
-      return user;
-    }));
-    
-    // Close the modal
-    closeEditUserModal();
-    
-    // Show success message
-    setAlert({
-      type: 'success',
-      message: 'User updated successfully!'
-    });
-  };
-
-  const openDeleteUserModal = (userId) => {
-    setCurrentUserId(userId);
-    setShowDeleteUserModal(true);
-  };
-
-  const closeDeleteUserModal = () => {
-    setShowDeleteUserModal(false);
-    setCurrentUserId(null);
-  };
-
-  const handleDeleteUser = () => {
-    // Remove the user from the users array
-    setUsers(prev => prev.filter(user => user.id !== currentUserId));
-    
-    // Close the modal
-    closeDeleteUserModal();
-    
-    // Show success message
-    setAlert({
-      type: 'success',
-      message: 'User deleted successfully!'
-    });
-  };
-
-  // Role display mapping
-  const roleDisplay = {
-    'admin': 'Administrator',
-    'manager': 'Manager',
-    'loan-officer': 'Loan Officer',
-    'accountant': 'Accountant',
-    'viewer': 'Viewer'
-  };
-
-  if (loading) {
     return (
-      <Layout>
         <div className="container">
-          <div className="loading-spinner">Loading...</div>
-        </div>
-      </Layout>
-    );
-  }
+            <div className="content">
+                <div id="alert-container">
+                    {localAlert && (
+                        <div className={`alert alert-${localAlert.type}`} role="alert">
+                            {localAlert.message}
+                            <button 
+                                type="button" 
+                                className="close" 
+                                onClick={() => setLocalAlert(null)}
+                                aria-label="Close"
+                            >
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+                <h2>System Settings</h2>
 
-  return (
-    <Layout>
-      <div className="container">
-        <div className="content">
-          <div id="alert-container"></div>
-          <h2>System Settings</h2>
-          
-          <div className="tab-container">
-            <div className="tab-buttons">
-              <button 
-                className={`tab-button ${activeTab === 'general-settings' ? 'active' : ''}`}
-                onClick={() => handleTabClick('general-settings')}
-              >
-                General
-              </button>
-              <button 
-                className={`tab-button ${activeTab === 'loan-settings' ? 'active' : ''}`}
-                onClick={() => handleTabClick('loan-settings')}
-              >
-                Loan Settings
-              </button>
-              <button 
-                className={`tab-button ${activeTab === 'user-settings' ? 'active' : ''}`}
-                onClick={() => handleTabClick('user-settings')}
-              >
-                User Management
-              </button>
+                <div className="tab-container" style={tabStyles.tabContainer}>
+                    <div className="tab-buttons" style={tabStyles.tabButtons}>
+                        <button
+                            className={`tab-button ${activeTab === 'general-settings' ? 'active' : ''}`}
+                            style={{
+                                ...tabStyles.tabButton,
+                                ...(activeTab === 'general-settings' ? tabStyles.activeTabButton : {})
+                            }}
+                            onClick={() => handleTabClick('general-settings')}
+                        >
+                            General
+                        </button>
+                        <button
+                            className={`tab-button ${activeTab === 'loan-settings' ? 'active' : ''}`}
+                            style={{
+                                ...tabStyles.tabButton,
+                                ...(activeTab === 'loan-settings' ? tabStyles.activeTabButton : {})
+                            }}
+                            onClick={() => handleTabClick('loan-settings')}
+                        >
+                            Loan Settings
+                        </button>
+                        <button
+                            className={`tab-button ${activeTab === 'user-settings' ? 'active' : ''}`}
+                            style={{
+                                ...tabStyles.tabButton,
+                                ...(activeTab === 'user-settings' ? tabStyles.activeTabButton : {})
+                            }}
+                            onClick={() => handleTabClick('user-settings')}
+                        >
+                            User Management
+                        </button>
+                    </div>
+
+                    {/* General Settings Tab */}
+                    <div
+                        id="general-settings"
+                        className={`tab-content ${activeTab === 'general-settings' ? 'active' : ''}`}
+                        style={{
+                            ...tabStyles.tabContent,
+                            ...(activeTab === 'general-settings' ? tabStyles.activeTabContent : {})
+                        }}
+                    >
+                        <form id="general-settings-form" onSubmit={handleGeneralSubmit}>
+                            <div className="form-group">
+                                <label htmlFor="org-organizationName">Organization Name</label>
+                                <input
+                                    type="text"
+                                    id="org-organizationName"
+                                    className="form-control"
+                                    value={generalSettings.organizationName}
+                                    onChange={handleGeneralChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="org-address">Address</label>
+                                <textarea
+                                    id="org-address"
+                                    className="form-control"
+                                    rows="3"
+                                    value={generalSettings.address}
+                                    onChange={handleGeneralChange}
+                                    required
+                                ></textarea>
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="org-phone">Phone Number</label>
+                                <input
+                                    type="tel"
+                                    id="org-phone"
+                                    className="form-control"
+                                    value={generalSettings.phone}
+                                    onChange={handleGeneralChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="org-currency">Currency</label>
+                                <select
+                                    id="org-currency"
+                                    className="form-control"
+                                    value={generalSettings.currency}
+                                    onChange={handleGeneralChange}
+                                    required
+                                >
+                                    <option value="TZS">Tanzanian Shilling (TZS)</option>
+                                    <option value="USD">US Dollar (USD)</option>
+                                    <option value="KES">Kenyan Shilling (KES)</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" className="btn btn-primary">Save Settings</button>
+                        </form>
+                    </div>
+
+                    {/* Loan Settings Tab */}
+                    <div
+                        id="loan-settings"
+                        className={`tab-content ${activeTab === 'loan-settings' ? 'active' : ''}`}
+                        style={{
+                            ...tabStyles.tabContent,
+                            ...(activeTab === 'loan-settings' ? tabStyles.activeTabContent : {})
+                        }}
+                    >
+                        <form id="loan-settings-form" onSubmit={handleLoanSubmit}>
+                            <div className="form-group">
+                                <label htmlFor="default-defaultInterestRate">Default Interest Rate (%)</label>
+                                <input
+                                    type="number"
+                                    id="default-defaultInterestRate"
+                                    className="form-control"
+                                    min="0"
+                                    step="0.01"
+                                    value={loanSettings.defaultInterestRate}
+                                    onChange={handleLoanChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="default-defaultLoanTerm">Default Loan Term (months)</label>
+                                <input
+                                    type="number"
+                                    id="default-defaultLoanTerm"
+                                    className="form-control"
+                                    min="1"
+                                    value={loanSettings.defaultLoanTerm}
+                                    onChange={handleLoanChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="default-lateFee">Late Payment Fee (%)</label>
+                                <input
+                                    type="number"
+                                    id="default-lateFee"
+                                    className="form-control"
+                                    min="0"
+                                    step="0.01"
+                                    value={loanSettings.lateFee}
+                                    onChange={handleLoanChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="default-gracePeriod">Grace Period (days)</label>
+                                <input
+                                    type="number"
+                                    id="default-gracePeriod"
+                                    className="form-control"
+                                    min="0"
+                                    value={loanSettings.gracePeriod}
+                                    onChange={handleLoanChange}
+                                    required
+                                />
+                            </div>
+
+                            <button type="submit" className="btn btn-primary">Save Settings</button>
+                        </form>
+                    </div>
+
+                    {/* User Management Tab */}
+                    <div
+                        id="user-settings"
+                        className={`tab-content ${activeTab === 'user-settings' ? 'active' : ''}`}
+                        style={{
+                            ...tabStyles.tabContent,
+                            ...(activeTab === 'user-settings' ? tabStyles.activeTabContent : {})
+                        }}
+                    >
+                        <div className="user-management-header">
+                            <h3>User Management</h3>
+                            <button id="add-user-btn" className="btn btn-primary" onClick={openAddUserModal}>Add New User</button>
+                        </div>
+
+                        {userLoading ? (
+                            <div className="loading-spinner">Loading users...</div>
+                        ) : (
+                            <div className="table-responsive">
+                                <table id="users-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Full Name</th>
+                                            <th>Username</th>
+                                            <th>Role</th>
+                                            <th>Branch</th>
+                                            <th>Last Updated</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="users-list">
+                                        {users.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="6" className="text-center">No users found</td>
+                                            </tr>
+                                        ) : (
+                                            users.map(user => (
+                                                <tr key={user.id}>
+                                                    <td>{user.fullName}</td>
+                                                    <td>{user.username}</td>
+                                                    <td>{roleDisplay[user.role] || user.role}</td>
+                                                    <td>{user.branch}</td>
+                                                    <td>{user.lastUpdated}</td>
+                                                    <td>
+                                                        <button
+                                                            className="btn btn-sm btn-secondary"
+                                                            onClick={() => openEditUserModal(user.id)}
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-sm btn-danger"
+                                                            onClick={() => openDeleteUserModal(user.id)}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
-            
-            <div id="general-settings" className={`tab-content ${activeTab === 'general-settings' ? 'active' : ''}`}>
-              <form id="general-settings-form" onSubmit={handleGeneralSubmit}>
-                <div className="form-group">
-                  <label htmlFor="org-name">Organization Name</label>
-                  <input 
-                    type="text" 
-                    id="org-name" 
-                    className="form-control"
-                    value={generalSettings.organizationName}
-                    onChange={handleGeneralChange}
-                    required 
-                  />
+
+            {/* Add User Modal */}
+            {showAddUserModal && (
+                <div className="modal" style={modalStyles.modal}>
+                    <div className="modal-content" style={modalStyles.modalContent}>
+                        <span className="close" style={modalStyles.closeButton} onClick={closeAddUserModal}>&times;</span>
+                        <h3>Add New User</h3>
+                        <form id="add-user-form" onSubmit={handleAddUser}>
+                            <div className="form-group">
+                                <label htmlFor="new-user-email">Email</label>
+                                <input
+                                    type="email"
+                                    id="new-user-email"
+                                    className="form-control"
+                                    value={newUserForm.email}
+                                    onChange={handleNewUserChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="new-user-password">Password</label>
+                                <input
+                                    type="password"
+                                    id="new-user-password"
+                                    className="form-control"
+                                    value={newUserForm.password}
+                                    onChange={handleNewUserChange}
+                                    required
+                                    minLength="6"
+                                />
+                                <small className="text-muted">Minimum 6 characters</small>
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="new-user-username">Username</label>
+                                <input
+                                    type="text"
+                                    id="new-user-username"
+                                    className="form-control"
+                                    value={newUserForm.username}
+                                    onChange={handleNewUserChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="new-user-fullName">Full Name</label>
+                                <input
+                                    type="text"
+                                    id="new-user-fullName"
+                                    className="form-control"
+                                    value={newUserForm.fullName}
+                                    onChange={handleNewUserChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="new-user-role">Role</label>
+                                <select
+                                    id="new-user-role"
+                                    className="form-control"
+                                    value={newUserForm.role}
+                                    onChange={handleNewUserChange}
+                                    required
+                                >
+                                    <option value="admin">Administrator</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="loan_officer">Loan Officer</option>
+                                    <option value="accountant">Accountant</option>
+                                    <option value="viewer">Viewer</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="new-user-branch">Branch</label>
+                                <select
+                                    id="new-user-branch"
+                                    className="form-control"
+                                    value={newUserForm.branch}
+                                    onChange={handleNewUserChange}
+                                    required
+                                >
+                                    <option value="HQ">Headquarters</option>
+                                    <option value="KIC">Kariakoo Branch</option>
+                                    <option value="MWN">Mwananyamala Branch</option>
+                                    <option value="DSM">Dar es Salaam Main</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" className="btn btn-primary">Add User</button>
+                            <button type="button" className="btn btn-secondary" onClick={closeAddUserModal}>Cancel</button>
+                        </form>
+                    </div>
                 </div>
-                
-                <div className="form-group">
-                  <label htmlFor="org-address">Address</label>
-                  <textarea 
-                    id="org-address" 
-                    className="form-control" 
-                    rows="3"
-                    value={generalSettings.address}
-                    onChange={handleGeneralChange}
-                    required
-                  ></textarea>
+            )}
+
+            {/* Edit User Modal */}
+            {showEditUserModal && (
+                <div className="modal" style={modalStyles.modal}>
+                    <div className="modal-content" style={modalStyles.modalContent}>
+                        <span className="close" style={modalStyles.closeButton} onClick={closeEditUserModal}>&times;</span>
+                        <h3>Edit User</h3>
+                        <form id="edit-user-form" onSubmit={handleUpdateUser}>
+                            <div className="form-group">
+                                <label htmlFor="edit-user-username">Username</label>
+                                <input
+                                    type="text"
+                                    id="edit-user-username"
+                                    className="form-control"
+                                    value={editUserForm.username}
+                                    onChange={handleEditUserChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="edit-user-fullName">Full Name</label>
+                                <input
+                                    type="text"
+                                    id="edit-user-fullName"
+                                    className="form-control"
+                                    value={editUserForm.fullName}
+                                    onChange={handleEditUserChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="edit-user-role">Role</label>
+                                <select
+                                    id="edit-user-role"
+                                    className="form-control"
+                                    value={editUserForm.role}
+                                    onChange={handleEditUserChange}
+                                    required
+                                >
+                                    <option value="admin">Administrator</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="loan_officer">Loan Officer</option>
+                                    <option value="accountant">Accountant</option>
+                                    <option value="viewer">Viewer</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="edit-user-branch">Branch</label>
+                                <select
+                                    id="edit-user-branch"
+                                    className="form-control"
+                                    value={editUserForm.branch}
+                                    onChange={handleEditUserChange}
+                                    required
+                                >
+                                    <option value="HQ">Headquarters</option>
+                                    <option value="KIC">Kariakoo Branch</option>
+                                    <option value="MWN">Mwananyamala Branch</option>
+                                    <option value="DSM">Dar es Salaam Main</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" className="btn btn-primary">Update User</button>
+                            <button type="button" className="btn btn-secondary" onClick={closeEditUserModal}>Cancel</button>
+                        </form>
+                    </div>
                 </div>
-                
-                <div className="form-group">
-                  <label htmlFor="org-phone">Phone Number</label>
-                  <input 
-                    type="tel" 
-                    id="org-phone" 
-                    className="form-control"
-                    value={generalSettings.phone}
-                    onChange={handleGeneralChange}
-                    required 
-                  />
+            )}
+
+            {/* Delete User Modal */}
+            {showDeleteUserModal && (
+                <div className="modal" style={modalStyles.modal}>
+                    <div className="modal-content" style={modalStyles.modalContent}>
+                        <span className="close" style={modalStyles.closeButton} onClick={closeDeleteUserModal}>&times;</span>
+                        <h3>Delete User</h3>
+                        <p>Are you sure you want to delete this user? This action cannot be undone.</p>
+                        <div className="modal-actions">
+                            <button className="btn btn-danger" onClick={handleDeleteUser}>Delete</button>
+                            <button className="btn btn-secondary" onClick={closeDeleteUserModal}>Cancel</button>
+                        </div>
+                    </div>
                 </div>
-                
-                <div className="form-group">
-                  <label htmlFor="org-currency">Currency</label>
-                  <select 
-                    id="org-currency" 
-                    className="form-control"
-                    value={generalSettings.currency}
-                    onChange={handleGeneralChange}
-                    required
-                  >
-                    <option value="TZS">Tanzanian Shilling (TZS)</option>
-                    <option value="USD">US Dollar (USD)</option>
-                    <option value="KES">Kenyan Shilling (KES)</option>
-                  </select>
-                </div>
-                
-                <button type="submit" className="btn btn-primary">Save Settings</button>
-              </form>
-            </div>
-            
-            <div id="loan-settings" className={`tab-content ${activeTab === 'loan-settings' ? 'active' : ''}`}>
-              <form id="loan-settings-form" onSubmit={handleLoanSubmit}>
-                <div className="form-group">
-                  <label htmlFor="default-interest">Default Interest Rate (%)</label>
-                  <input 
-                    type="number" 
-                    id="default-interest" 
-                    className="form-control" 
-                    min="0" 
-                    step="0.01"
-                    value={loanSettings.defaultInterestRate}
-                    onChange={handleLoanChange}
-                    required 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="default-term">Default Loan Term (months)</label>
-                  <input 
-                    type="number" 
-                    id="default-term" 
-                    className="form-control" 
-                    min="1"
-                    value={loanSettings.defaultLoanTerm}
-                    onChange={handleLoanChange}
-                    required 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="late-fee">Late Payment Fee (%)</label>
-                  <input 
-                    type="number" 
-                    id="late-fee" 
-                    className="form-control" 
-                    min="0" 
-                    step="0.01"
-                    value={loanSettings.lateFee}
-                    onChange={handleLoanChange}
-                    required 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="grace-period">Grace Period (days)</label>
-                  <input 
-                    type="number" 
-                    id="grace-period" 
-                    className="form-control" 
-                    min="0"
-                    value={loanSettings.gracePeriod}
-                    onChange={handleLoanChange}
-                    required 
-                  />
-                </div>
-                
-                <button type="submit" className="btn btn-primary">Save Settings</button>
-              </form>
-            </div>
-            
-            <div id="user-settings" className={`tab-content ${activeTab === 'user-settings' ? 'active' : ''}`}>
-              <div className="user-management-header">
-                <h3>User Management</h3>
-                <button id="add-user-btn" className="btn btn-primary" onClick={openAddUserModal}>Add New User</button>
-              </div>
-              
-              <div className="table-responsive">
-                <table id="users-table">
-                  <thead>
-                    <tr>
-                      <th>Full Name</th>
-                      <th>Username</th>
-                      <th>Role</th>
-                      <th>Branch</th>
-                      <th>Last Updated</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="users-list">
-                    {users.map(user => (
-                      <tr key={user.id}>
-                        <td>{user.fullName}</td>
-                        <td>{user.username}</td>
-                        <td>{roleDisplay[user.role] || user.role}</td>
-                        <td>{user.branch}</td>
-                        <td>{user.lastUpdated}</td>
-                        <td>
-                          <button 
-                            className="btn btn-sm btn-secondary" 
-                            onClick={() => openEditUserModal(user.id)}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="btn btn-sm btn-danger" 
-                            onClick={() => openDeleteUserModal(user.id)}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+            )}
         </div>
-      </div>
-      
-      {/* Add User Modal */}
-      {showAddUserModal && (
-        <div className="modal" style={{ display: 'block' }}>
-          <div className="modal-content">
-            <span className="close" onClick={closeAddUserModal}>&times;</span>
-            <h3>Add New User</h3>
-            <form id="add-user-form" onSubmit={handleAddUser}>
-              <div className="form-group">
-                <label htmlFor="new-user-username">Username</label>
-                <input 
-                  type="text" 
-                  id="new-user-username" 
-                  className="form-control"
-                  value={newUserForm.username}
-                  onChange={handleNewUserChange}
-                  required 
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="new-user-fullName">Full Name</label>
-                <input 
-                  type="text" 
-                  id="new-user-fullName" 
-                  className="form-control"
-                  value={newUserForm.fullName}
-                  onChange={handleNewUserChange}
-                  required 
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="new-user-role">Role</label>
-                <select 
-                  id="new-user-role" 
-                  className="form-control"
-                  value={newUserForm.role}
-                  onChange={handleNewUserChange}
-                  required
-                >
-                  <option value="admin">Administrator</option>
-                  <option value="manager">Manager</option>
-                  <option value="loan-officer">Loan Officer</option>
-                  <option value="accountant">Accountant</option>
-                  <option value="viewer">Viewer</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="new-user-branch">Branch</label>
-                <input 
-                  type="text" 
-                  id="new-user-branch" 
-                  className="form-control" 
-                  value={newUserForm.branch}
-                  onChange={handleNewUserChange}
-                  required 
-                />
-              </div>
-              
-              <button type="submit" className="btn btn-primary">Create User</button>
-            </form>
-          </div>
-        </div>
-      )}
-      
-      {/* Edit User Modal */}
-      {showEditUserModal && (
-        <div className="modal" style={{ display: 'block' }}>
-          <div className="modal-content">
-            <span className="close" onClick={closeEditUserModal}>&times;</span>
-            <h3>Edit User</h3>
-            <form id="edit-user-form" onSubmit={handleUpdateUser}>
-              <input type="hidden" id="edit-user-id" value={editUserForm.id} />
-              <div className="form-group">
-                <label htmlFor="edit-user-username">Username</label>
-                <input 
-                  type="text" 
-                  id="edit-user-username" 
-                  className="form-control"
-                  value={editUserForm.username}
-                  onChange={handleEditUserChange}
-                  required 
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="edit-user-fullName">Full Name</label>
-                <input 
-                  type="text" 
-                  id="edit-user-fullName" 
-                  className="form-control"
-                  value={editUserForm.fullName}
-                  onChange={handleEditUserChange}
-                  required 
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="edit-user-role">Role</label>
-                <select 
-                  id="edit-user-role" 
-                  className="form-control"
-                  value={editUserForm.role}
-                  onChange={handleEditUserChange}
-                  required
-                >
-                  <option value="admin">Administrator</option>
-                  <option value="manager">Manager</option>
-                  <option value="loan-officer">Loan Officer</option>
-                  <option value="accountant">Accountant</option>
-                  <option value="viewer">Viewer</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="edit-user-branch">Branch</label>
-                <input 
-                  type="text" 
-                  id="edit-user-branch" 
-                  className="form-control"
-                  value={editUserForm.branch}
-                  onChange={handleEditUserChange}
-                  required 
-                />
-              </div>
-              
-              <button type="submit" className="btn btn-primary">Update User</button>
-            </form>
-          </div>
-        </div>
-      )}
-      
-      {/* Delete User Confirmation Modal */}
-      {showDeleteUserModal && (
-        <div className="modal" style={{ display: 'block' }}>
-          <div className="modal-content">
-            <span className="close" onClick={closeDeleteUserModal}>&times;</span>
-            <h3>Confirm Delete</h3>
-            <p>Are you sure you want to delete this user? This action cannot be undone.</p>
-            <input type="hidden" id="delete-user-id" value={currentUserId} />
-            <div className="modal-actions">
-              <button id="confirm-delete" className="btn btn-danger" onClick={handleDeleteUser}>Delete User</button>
-              <button id="cancel-delete" className="btn btn-secondary" onClick={closeDeleteUserModal}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </Layout>
-  );
+    );
 };
 
 export default Settings;

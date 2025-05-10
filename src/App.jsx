@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useState, useEffect, createContext } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import { AlertProvider } from './context/AlertContext';
 import Alert from './components/Alert';
@@ -116,7 +116,7 @@ const App = () => {
   return (
     <AlertProvider>
       <AuthContext.Provider value={{ session, supabase }}>
-        <BrowserRouter>
+        <HashRouter>
           <Alert /> {/* Global alert component */}
           <Routes>
             {/* Public routes */}
@@ -155,7 +155,7 @@ const App = () => {
               } 
             />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </AuthContext.Provider>
     </AlertProvider>
   );

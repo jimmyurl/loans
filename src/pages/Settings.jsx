@@ -256,61 +256,50 @@ const Settings = () => {
     const handleAddUser = async (e) => {
       e.preventDefault();
       try {
-          // Step 1: Sign up user via signup method
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-              email: newUserForm.email,
-              password: newUserForm.password,
-              options: {
-                  data: {
-                      username: newUserForm.username,
-                      full_name: newUserForm.fullName,
-                      role: newUserForm.role,
-                      branch: newUserForm.branch
-                  }
-              }
-          });
-  
-          if (authError) throw authError;
-          
-          if (!authData || !authData.user) {
-              throw new Error('Failed to create user');
+        // Step 1: Sign up user via auth.signUp
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: newUserForm.email,
+          password: newUserForm.password,
+          options: {
+            data: {
+              username: newUserForm.username,
+              full_name: newUserForm.fullName,
+              role: newUserForm.role,
+              branch: newUserForm.branch
+            }
           }
-  
-          // Wait for auth user to be fully created before inserting the profile
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Step 2: Add user profile to user_profiles table
-          const { error: profileError } = await supabase
-              .from('user_profiles')
-              .insert({
-                  user_id: authData.user.id,
-                  username: newUserForm.username,
-                  full_name: newUserForm.fullName,
-                  role: newUserForm.role,
-                  branch: newUserForm.branch
-              });
-  
-          if (profileError) throw profileError;
-  
-          // Refresh user list
-          await fetchUsers();
-  
-          // Close the modal and reset the form
-          closeAddUserModal();
-  
-          // Show success message
-          displayAlert({
-              type: 'success',
-              message: 'User added successfully! They will need to confirm their email to log in.'
-          });
+        });
+    
+        if (authError) throw authError;
+        
+        if (!authData || !authData.user) {
+          throw new Error('Failed to create user');
+        }
+    
+        // Success message about confirmation email
+        displayAlert({
+          type: 'success',
+          message: `User added successfully! ${newUserForm.fullName} will need to confirm their email to activate their account.`
+        });
+    
+        // Note: We DON'T need to manually insert into user_profiles
+        // Supabase has a database trigger to do this automatically
+        // based on the auth.users table when a user confirms their email
+    
+        // Close the modal and reset the form
+        closeAddUserModal();
+        
+        // Optionally fetch users again to show pending users
+        await fetchUsers();
+        
       } catch (error) {
-          console.error('Error adding user:', error);
-          displayAlert({
-              type: 'error',
-              message: `Failed to add user: ${error.message}`
-          });
+        console.error('Error adding user:', error);
+        displayAlert({
+          type: 'error',
+          message: `Failed to add user: ${error.message}`
+        });
       }
-  };
+    }
 
     const openEditUserModal = (userId) => {
         const user = users.find(u => u.id === userId);

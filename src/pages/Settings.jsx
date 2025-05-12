@@ -50,6 +50,7 @@ const Settings = () => {
 
     // Users state for user management
     const [users, setUsers] = useState([]);
+    const [pendingUsers, setPendingUsers] = useState([]);
     const [userLoading, setUserLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
 
@@ -57,6 +58,7 @@ const Settings = () => {
     const [showAddUserModal, setShowAddUserModal] = useState(false);
     const [showEditUserModal, setShowEditUserModal] = useState(false);
     const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
+    const [showPendingUsersModal, setShowPendingUsersModal] = useState(false);
     const [currentUserId, setCurrentUserId] = useState(null);
 
     // New user form state
@@ -129,16 +131,16 @@ const Settings = () => {
         setUserLoading(true);
         try {
             // Query user_profiles table in Supabase
-            const { data, error } = await supabase
+            const { data: profileData, error: profileError } = await supabase
                 .from('user_profiles')
                 .select('user_id, username, full_name, role, branch, updated_at');
 
-            if (error) {
-                throw error;
+            if (profileError) {
+                throw profileError;
             }
 
             // Format user data
-            const formattedUsers = data.map(user => ({
+            const formattedUsers = profileData.map(user => ({
                 id: user.user_id,
                 username: user.username,
                 fullName: user.full_name,
@@ -148,6 +150,12 @@ const Settings = () => {
             }));
 
             setUsers(formattedUsers);
+            
+            // Now fetch pending users from auth.users that aren't in user_profiles
+            // Note: This requires admin rights or a server function in production
+            // For simplicity, we'll implement a way to manually add them
+            await fetchPendingUsers();
+            
         } catch (error) {
             console.error('Error fetching users:', error);
             displayAlert({
@@ -156,6 +164,20 @@ const Settings = () => {
             });
         } finally {
             setUserLoading(false);
+        }
+    };
+    
+    // Since direct access to auth.users might be restricted, we'll create a simulated approach
+    // In production, this would be handled by a server function or admin API
+    const fetchPendingUsers = async () => {
+        try {
+            // Check local storage for any pending users we've added
+            const storedPendingUsers = localStorage.getItem('pendingUsers');
+            if (storedPendingUsers) {
+                setPendingUsers(JSON.parse(storedPendingUsers));
+            }
+        } catch (error) {
+            console.error('Error fetching pending users:', error);
         }
     };
 
@@ -213,7 +235,7 @@ const Settings = () => {
         setLoanSettings(prev => ({ ...prev, [id.replace('default-', '')]: value }));
     };
 
-  // User management functions
+    // User management functions
     const openAddUserModal = () => {
         // Reset the new user form completely to ensure no leftover data
         setNewUserForm({
@@ -254,52 +276,121 @@ const Settings = () => {
     };
 
     const handleAddUser = async (e) => {
-      e.preventDefault();
-      try {
-        // Step 1: Sign up user via auth.signUp
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: newUserForm.email,
-          password: newUserForm.password,
-          options: {
-            data: {
-              username: newUserForm.username,
-              full_name: newUserForm.fullName,
-              role: newUserForm.role,
-              branch: newUserForm.branch
+        e.preventDefault();
+        try {
+            // Step 1: Sign up user via auth.signUp
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: newUserForm.email,
+                password: newUserForm.password,
+                options: {
+                    data: {
+                        username: newUserForm.username,
+                        full_name: newUserForm.fullName,
+                        role: newUserForm.role,
+                        branch: newUserForm.branch
+                    }
+                }
+            });
+        
+            if (authError) throw authError;
+            
+            if (!authData || !authData.user) {
+                throw new Error('Failed to create user');
             }
-          }
-        });
-    
-        if (authError) throw authError;
+            
+            // Store the pending user in localStorage for manual confirmation
+            const pendingUser = {
+                id: authData.user.id,
+                email: newUserForm.email,
+                username: newUserForm.username,
+                fullName: newUserForm.fullName,
+                role: newUserForm.role,
+                branch: newUserForm.branch,
+                createdAt: new Date().toISOString()
+            };
+            
+            // Add to pending users
+            const updatedPendingUsers = [...pendingUsers, pendingUser];
+            setPendingUsers(updatedPendingUsers);
+            
+            // Save to localStorage
+            localStorage.setItem('pendingUsers', JSON.stringify(updatedPendingUsers));
         
-        if (!authData || !authData.user) {
-          throw new Error('Failed to create user');
+            // Success message about confirmation email
+            displayAlert({
+                type: 'success',
+                message: `User added successfully! Since email confirmation might not be working, you can manually confirm ${newUserForm.fullName} from the "Pending Users" button.`
+            });
+        
+            // Close the modal and reset the form
+            closeAddUserModal();
+            
+        } catch (error) {
+            console.error('Error adding user:', error);
+            displayAlert({
+                type: 'error',
+                message: `Failed to add user: ${error.message}`
+            });
         }
+    };
     
-        // Success message about confirmation email
-        displayAlert({
-          type: 'success',
-          message: `User added successfully! ${newUserForm.fullName} will need to confirm their email to activate their account.`
-        });
+    const openPendingUsersModal = () => {
+        setShowPendingUsersModal(true);
+    };
     
-        // Note: We DON'T need to manually insert into user_profiles
-        // Supabase has a database trigger to do this automatically
-        // based on the auth.users table when a user confirms their email
+    const closePendingUsersModal = () => {
+        setShowPendingUsersModal(false);
+    };
     
-        // Close the modal and reset the form
-        closeAddUserModal();
-        
-        // Optionally fetch users again to show pending users
-        await fetchUsers();
-        
-      } catch (error) {
-        console.error('Error adding user:', error);
-        displayAlert({
-          type: 'error',
-          message: `Failed to add user: ${error.message}`
-        });
-      }
-    }
+    const handleManualConfirmation = async (userId) => {
+        try {
+            // Find the pending user
+            const pendingUser = pendingUsers.find(user => user.id === userId);
+            if (!pendingUser) {
+                throw new Error('User not found');
+            }
+            
+            // In a production environment, you would use an admin function or server API to:
+            // 1. Set the user as confirmed in auth.users
+            // 2. Create the user_profile entry
+            
+            // For this demo, we'll directly create a user_profile entry
+            const { error } = await supabase
+                .from('user_profiles')
+                .insert({
+                    user_id: pendingUser.id,
+                    username: pendingUser.username,
+                    full_name: pendingUser.fullName,
+                    role: pendingUser.role,
+                    branch: pendingUser.branch,
+                    email: pendingUser.email,
+                    created_at: pendingUser.createdAt,
+                    updated_at: new Date().toISOString()
+                });
+                
+            if (error) throw error;
+            
+            // Remove user from pending list
+            const updatedPendingUsers = pendingUsers.filter(user => user.id !== userId);
+            setPendingUsers(updatedPendingUsers);
+            localStorage.setItem('pendingUsers', JSON.stringify(updatedPendingUsers));
+            
+            // Refresh users list
+            await fetchUsers();
+            
+            displayAlert({
+                type: 'success',
+                message: `User ${pendingUser.fullName} has been manually confirmed and added to the system.`
+            });
+            
+        } catch (error) {
+            console.error('Error confirming user:', error);
+            displayAlert({
+                type: 'error',
+                message: `Failed to confirm user: ${error.message}`
+            });
+        }
+    };
 
     const openEditUserModal = (userId) => {
         const user = users.find(u => u.id === userId);
@@ -708,9 +799,20 @@ const Settings = () => {
                             ...(activeTab === 'user-settings' ? tabStyles.activeTabContent : {})
                         }}
                     >
-                        <div className="user-management-header">
+                        <div className="user-management-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                             <h3>User Management</h3>
-                            <button id="add-user-btn" className="btn btn-primary" onClick={openAddUserModal}>Add New User</button>
+                            <div>
+                                <button 
+                                    className="btn btn-info" 
+                                    onClick={openPendingUsersModal}
+                                    style={{ marginRight: '10px' }}
+                                >
+                                    Pending Users {pendingUsers.length > 0 ? `(${pendingUsers.length})` : ''}
+                                </button>
+                                <button id="add-user-btn" className="btn btn-primary" onClick={openAddUserModal}>
+                                    Add New User
+                                </button>
+                            </div>
                         </div>
 
                         {userLoading ? (
@@ -751,6 +853,7 @@ const Settings = () => {
                                                         <button
                                                             className="btn btn-sm btn-danger"
                                                             onClick={() => openDeleteUserModal(user.id)}
+                                                            style={{ marginLeft: '5px' }}
                                                         >
                                                             Delete
                                                         </button>
@@ -766,198 +869,233 @@ const Settings = () => {
                 </div>
             </div>
 
-            {/* Add User Modal */}
-            {showAddUserModal && (
-                <div className="modal" style={modalStyles.modal}>
-                    <div className="modal-content" style={modalStyles.modalContent}>
-                        <span className="close" style={modalStyles.closeButton} onClick={closeAddUserModal}>&times;</span>
-                        <h3>Add New User</h3>
-                        <form id="add-user-form" onSubmit={handleAddUser}>
-                            <div className="form-group">
-                                <label htmlFor="new-user-email">Email</label>
-                                <input
-                                    type="email"
-                                    id="new-user-email"
-                                    className="form-control"
-                                    value={newUserForm.email}
-                                    onChange={handleNewUserChange}
-                                    required
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="new-user-password">Password</label>
-                                <input
-                                    type="password"
-                                    id="new-user-password"
-                                    className="form-control"
-                                    value={newUserForm.password}
-                                    onChange={handleNewUserChange}
-                                    required
-                                    minLength="6"
-                                />
-                                <small className="text-muted">Minimum 6 characters</small>
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="new-user-username">Username</label>
-                                <input
-                                    type="text"
-                                    id="new-user-username"
-                                    className="form-control"
-                                    value={newUserForm.username}
-                                    onChange={handleNewUserChange}
-                                    required
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="new-user-fullName">Full Name</label>
-                                <input
-                                    type="text"
-                                    id="new-user-fullName"
-                                    className="form-control"
-                                    value={newUserForm.fullName}
-                                    onChange={handleNewUserChange}
-                                    required
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="new-user-role">Role</label>
-                                <select
-                                    id="new-user-role"
-                                    className="form-control"
-                                    value={newUserForm.role}
-                                    onChange={handleNewUserChange}
-                                    required
-                                >
-                                    <option value="admin">Administrator</option>
-                                    <option value="manager">Manager</option>
-                                    <option value="loan_officer">Loan Officer</option>
-                                    <option value="accountant">Accountant</option>
-                                    <option value="viewer">Viewer</option>
-                                </select>
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="new-user-branch">Branch</label>
-                                <select
-                                    id="new-user-branch"
-                                    className="form-control"
-                                    value={newUserForm.branch}
-                                    onChange={handleNewUserChange}
-                                    required
-                                >
-                                    <option value="HQ">Headquarters</option>
-                                    <option value="KIC">Kariakoo Branch</option>
-                                    <option value="MWN">Mwananyamala Branch</option>
-                                    <option value="DSM">Dar es Salaam Main</option>
-                                </select>
-                            </div>
-
-                            <button type="submit" className="btn btn-primary">Add User</button>
-                            <button type="button" className="btn btn-secondary" onClick={closeAddUserModal}>Cancel</button>
-                        </form>
-                    </div>
+{/* Add User Modal */}
+{showAddUserModal && (
+    <div className="modal" style={modalStyles.modal}>
+        <div className="modal-content" style={modalStyles.modalContent}>
+            <span className="close" style={modalStyles.closeButton} onClick={closeAddUserModal}>&times;</span>
+            <h3>Add New User</h3>
+            <form id="add-user-form" onSubmit={handleAddUser}>
+                <div className="form-group">
+                    <label htmlFor="new-user-email">Email</label>
+                    <input
+                        type="email"
+                        id="new-user-email"
+                        className="form-control"
+                        value={newUserForm.email}
+                        onChange={handleNewUserChange}
+                        required
+                    />
                 </div>
-            )}
+                <div className="form-group">
+                    <label htmlFor="new-user-password">Password</label>
+                    <input
+                        type="password"
+                        id="new-user-password"
+                        className="form-control"
+                        value={newUserForm.password}
+                        onChange={handleNewUserChange}
+                        required
+                        minLength="6"
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="new-user-username">Username</label>
+                    <input
+                        type="text"
+                        id="new-user-username"
+                        className="form-control"
+                        value={newUserForm.username}
+                        onChange={handleNewUserChange}
+                        required
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="new-user-fullName">Full Name</label>
+                    <input
+                        type="text"
+                        id="new-user-fullName"
+                        className="form-control"
+                        value={newUserForm.fullName}
+                        onChange={handleNewUserChange}
+                        required
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="new-user-role">Role</label>
+                    <select
+                        id="new-user-role"
+                        className="form-control"
+                        value={newUserForm.role}
+                        onChange={handleNewUserChange}
+                        required
+                    >
+                        <option value="admin">Administrator</option>
+                        <option value="manager">Manager</option>
+                        <option value="loan_officer">Loan Officer</option>
+                        <option value="accountant">Accountant</option>
+                        <option value="viewer">Viewer</option>
+                    </select>
+                </div>
+                <div className="form-group">
+                    <label htmlFor="new-user-branch">Branch</label>
+                    <select
+                        id="new-user-branch"
+                        className="form-control"
+                        value={newUserForm.branch}
+                        onChange={handleNewUserChange}
+                        required
+                    >
+                        <option value="KIC">KIC</option>
+                        <option value="DSM">Dar es Salaam</option>
+                        <option value="ARU">Arusha</option>
+                        <option value="MWZ">Mwanza</option>
+                    </select>
+                </div>
+                <button type="submit" className="btn btn-primary">Add User</button>
+            </form>
+        </div>
+    </div>
+)}
 
-           {/* Edit User Modal */}
-           {showEditUserModal && (
-                <div className="modal" style={modalStyles.modal}>
-                    <div className="modal-content" style={modalStyles.modalContent}>
-                        <span className="close" style={modalStyles.closeButton} onClick={closeEditUserModal}>&times;</span>
-                        <h3>Edit User</h3>
-                        <form id="edit-user-form" onSubmit={handleUpdateUser}>
-                            <div className="form-group">
-                                <label htmlFor="edit-user-username">Username</label>
-                                <input
-                                    type="text"
-                                    id="edit-user-username"
-                                    className="form-control"
-                                    value={editUserForm.username}
-                                    onChange={handleEditUserChange}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-    <label htmlFor="edit-user-username">Username</label>
-    <input
-        type="text"
-        id="edit-user-username"
-        className="form-control"
-        value={editUserForm.username}
-        onChange={handleEditUserChange}
-        required
-    />
-</div>
-
-<div className="form-group">
-    <label htmlFor="edit-user-fullName">Full Name</label>
-    <input
-        type="text"
-        id="edit-user-fullName"
-        className="form-control"
-        value={editUserForm.fullName}
-        onChange={handleEditUserChange}
-        required
-    />
-</div>
-
-<div className="form-group">
-    <label htmlFor="edit-user-role">Role</label>
-    <select
-        id="edit-user-role"
-        className="form-control"
-        value={editUserForm.role}
-        onChange={handleEditUserChange}
-        required
-    >
-        <option value="admin">Administrator</option>
-        <option value="manager">Manager</option>
-        <option value="loan_officer">Loan Officer</option>
-        <option value="accountant">Accountant</option>
-        <option value="viewer">Viewer</option>
-    </select>
-</div>
-
-<div className="form-group">
-    <label htmlFor="edit-user-branch">Branch</label>
-    <select
-        id="edit-user-branch"
-        className="form-control"
-        value={editUserForm.branch}
-        onChange={handleEditUserChange}
-        required
-    >
-        <option value="HQ">Headquarters</option>
-        <option value="KIC">Kariakoo Branch</option>
-        <option value="MWN">Mwananyamala Branch</option>
-        <option value="DSM">Dar es Salaam Main</option>
-    </select>
-</div>
-
-<button type="submit" className="btn btn-primary">Update User</button>
-<button type="button" className="btn btn-secondary" onClick={closeEditUserModal}>Cancel</button>
-</form>
-</div>
-</div>
+{/* Edit User Modal */}
+{showEditUserModal && (
+    <div className="modal" style={modalStyles.modal}>
+        <div className="modal-content" style={modalStyles.modalContent}>
+            <span className="close" style={modalStyles.closeButton} onClick={closeEditUserModal}>&times;</span>
+            <h3>Edit User</h3>
+            <form id="edit-user-form" onSubmit={handleUpdateUser}>
+                <div className="form-group">
+                    <label htmlFor="edit-user-username">Username</label>
+                    <input
+                        type="text"
+                        id="edit-user-username"
+                        className="form-control"
+                        value={editUserForm.username}
+                        onChange={handleEditUserChange}
+                        required
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="edit-user-fullName">Full Name</label>
+                    <input
+                        type="text"
+                        id="edit-user-fullName"
+                        className="form-control"
+                        value={editUserForm.fullName}
+                        onChange={handleEditUserChange}
+                        required
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="edit-user-role">Role</label>
+                    <select
+                        id="edit-user-role"
+                        className="form-control"
+                        value={editUserForm.role}
+                        onChange={handleEditUserChange}
+                        required
+                    >
+                        <option value="admin">Administrator</option>
+                        <option value="manager">Manager</option>
+                        <option value="loan_officer">Loan Officer</option>
+                        <option value="accountant">Accountant</option>
+                        <option value="viewer">Viewer</option>
+                    </select>
+                </div>
+                <div className="form-group">
+                    <label htmlFor="edit-user-branch">Branch</label>
+                    <select
+                        id="edit-user-branch"
+                        className="form-control"
+                        value={editUserForm.branch}
+                        onChange={handleEditUserChange}
+                        required
+                    >
+                        <option value="KIC">KIC</option>
+                        <option value="DSM">Dar es Salaam</option>
+                        <option value="ARU">Arusha</option>
+                        <option value="MWZ">Mwanza</option>
+                    </select>
+                </div>
+                <button type="submit" className="btn btn-primary">Update User</button>
+            </form>
+        </div>
+    </div>
 )}
 
 {/* Delete User Modal */}
 {showDeleteUserModal && (
-<div className="modal" style={modalStyles.modal}>
-    <div className="modal-content" style={modalStyles.modalContent}>
-        <span className="close" style={modalStyles.closeButton} onClick={closeDeleteUserModal}>&times;</span>
-        <h3>Confirm User Deletion</h3>
-        <p>Are you sure you want to delete this user? This action cannot be undone.</p>
-        <div className="modal-buttons">
-            <button className="btn btn-danger" onClick={handleDeleteUser}>Delete User</button>
-            <button className="btn btn-secondary" onClick={closeDeleteUserModal}>Cancel</button>
+    <div className="modal" style={modalStyles.modal}>
+        <div className="modal-content" style={modalStyles.modalContent}>
+            <span className="close" style={modalStyles.closeButton} onClick={closeDeleteUserModal}>&times;</span>
+            <h3>Delete User</h3>
+            <p>Are you sure you want to delete this user? This action cannot be undone.</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <button className="btn btn-secondary" onClick={closeDeleteUserModal}>Cancel</button>
+                <button className="btn btn-danger" onClick={handleDeleteUser}>Delete User</button>
+            </div>
         </div>
     </div>
-</div>
+)}
+
+{/* Pending Users Modal */}
+{showPendingUsersModal && (
+    <div className="modal" style={modalStyles.modal}>
+        <div className="modal-content" style={modalStyles.modalContent}>
+            <span className="close" style={modalStyles.closeButton} onClick={closePendingUsersModal}>&times;</span>
+            <h3>Pending Users</h3>
+            
+            {pendingUsers.length === 0 ? (
+                <p>No pending users found.</p>
+            ) : (
+                <div className="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Branch</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {pendingUsers.map(user => (
+                                <tr key={user.id}>
+                                    <td>{user.fullName}</td>
+                                    <td>{user.email}</td>
+                                    <td>{roleDisplay[user.role] || user.role}</td>
+                                    <td>{user.branch}</td>
+                                    <td>
+                                        <div className="btn-group">
+                                            <button
+                                                className="btn btn-sm btn-success"
+                                                onClick={() => handleManualConfirmation(user.id)}
+                                                style={{ marginRight: '5px' }}
+                                            >
+                                                Confirm
+                                            </button>
+                                            <button
+                                                className="btn btn-sm btn-danger"
+                                                onClick={() => handleDeletePendingUser(user.id)}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+            
+            <div style={{ marginTop: '20px' }}>
+                <button className="btn btn-secondary" onClick={closePendingUsersModal}>Close</button>
+            </div>
+        </div>
+    </div>
 )}
 </div>
 );

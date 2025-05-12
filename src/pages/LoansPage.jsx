@@ -415,13 +415,21 @@ const LoansPage = () => {
                       >
                         View
                       </button>
-                      {['Pending', 'Active'].includes(loan.status) && (
-                        <button 
-                          onClick={() => navigate(`/edit-loan/${loan.id}`)}
-                          className="btn btn-sm btn-secondary"
-                        >
-                          Edit
-                        </button>
+                      {loan.status === 'Pending' && (
+                        <>
+                          <button 
+                            onClick={() => handleLoanAcceptance(loan.id)}
+                            className="btn btn-sm btn-success"
+                          >
+                            Accept
+                          </button>
+                          <button 
+                            onClick={() => handleLoanRejection(loan.id)}
+                            className="btn btn-sm btn-danger"
+                          >
+                            Reject
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

@@ -265,82 +265,32 @@ table tbody tr:hover {
   background-color: rgba(0, 0, 0, 0.02);
 }
 
-/* Add this to your global CSS file or component styles */
-
-/* Logo styling fix */
-.app-logo {
-  color: rgba(255, 255, 255, 0.9); /* Whitish color with slight transparency */
-  font-weight: bold;
-  font-size: 1.5rem;
-  text-decoration: none; /* Remove underline */
-  display: flex;
-  align-items: center;
-}
-
-.app-logo:hover {
-  color: #ffffff; /* Full white on hover */
-  text-decoration: none; /* Ensure no underline on hover */
-}
-
-/* Loading animation */
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Status badges styling */
 .status-badge {
-  padding: 4px 8px;
+  padding: 0.25rem 0.5rem;
   border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
 }
 
 .status-badge.active {
-  background-color: rgba(33, 150, 243, 0.15);
-  color: #2196F3;
+  background-color: #e8f5e9;
+  color: var(--success-color);
+}
+
+.status-badge.paid {
+  background-color: #e3f2fd;
+  color: var(--info-color);
 }
 
 .status-badge.overdue {
-  background-color: rgba(255, 152, 0, 0.15);
-  color: #FF9800;
-}
-
-.status-badge.fully-paid {
-  background-color: rgba(76, 175, 80, 0.15);
-  color: #4CAF50;
-}
-
-.status-badge.pending {
-  background-color: rgba(158, 158, 158, 0.15);
-  color: #9E9E9E;
+  background-color: #fff3e0;
+  color: var(--warning-color);
 }
 
 .status-badge.defaulted {
-  background-color: rgba(244, 67, 54, 0.15);
-  color: #F44336;
-}
-
-.status-badge.rejected {
-  background-color: rgba(96, 125, 139, 0.15);
-  color: #607D8B;
+  background-color: #ffebee;
+  color: var(--danger-color);
 }
 
 /* Buttons */

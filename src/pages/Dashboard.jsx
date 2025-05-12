@@ -195,14 +195,14 @@ const Dashboard = () => {
         const year = date.getFullYear();
         const month = date.getMonth() + 1; // JavaScript months are 0-based
         
-        const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+        const startDate = `<span class="math-inline">\{year\}\-</span>{month.toString().padStart(2, '0')}-01`;
         let endDate;
         
         if (i === 0) { // Current month
           endDate = today.toISOString().split('T')[0]; // Today's date
         } else {
           const lastDay = new Date(year, month, 0).getDate();
-          endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay}`;
+          endDate = `<span class="math-inline">\{year\}\-</span>{month.toString().padStart(2, '0')}-${lastDay}`;
         }
         
         // Get total disbursed amount for the month from loan_disbursements table

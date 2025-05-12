@@ -105,18 +105,20 @@ const Login = ({ setSession, supabase }) => {
             />
           </div>
           
-          <button 
-            type="submit" 
-            className="btn-primary"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="spinner"></span>
-                Logging in...
-              </>
-            ) : 'Login'}
-          </button>
+          <div className="form-group">
+            <button 
+              type="submit" 
+              className="btn-primary full-width"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span className="spinner"></span>
+                  Logging in...
+                </>
+              ) : 'Login'}
+            </button>
+          </div>
         </form>
         
         <div className="login-footer">

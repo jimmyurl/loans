@@ -5,7 +5,15 @@ import { AuthContext } from '../App';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, Users, CreditCard, Calendar, FileText, Loader } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
+
+
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xfihpvkbzppaejluyqoq.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmaWhwdmtienBwYWVqbHV5cW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg1NDQzMzgsImV4cCI6MjA0NDEyMDMzOH0.U30_ovXdjGrovUZhBeVbeXtX-Xg29BPNZF9mhz7USfM';
+const supabase = createClient(supabaseUrl, supabaseKey);
 // Quick navigation links definition
+
+
 const quickNavLinks = [
   { 
     to: "/new-loan", 

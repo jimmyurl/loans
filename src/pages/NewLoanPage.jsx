@@ -30,23 +30,58 @@ const NewLoanPage = () => {
   });
   const [errors, setErrors] = useState({});
   const [totalRepaymentAmount, setTotalRepaymentAmount] = useState(0);
+  const [monthlyRepaymentAmount, setMonthlyRepaymentAmount] = useState(0);
 
   // Fetch client list when component mounts
   useEffect(() => {
     fetchClients();
   }, []);
 
-  // Calculate total repayment amount
+  // Calculate total repayment amount and monthly payment
   useEffect(() => {
     const amount = parseFloat(formData.loan_amount);
     const rate = parseFloat(formData.interest_rate);
-    if (!isNaN(amount) && !isNaN(rate)) {
+    const termLength = parseInt(formData.term_length);
+    const termUnit = formData.term_unit;
+    
+    if (!isNaN(amount) && !isNaN(rate) && !isNaN(termLength) && termUnit) {
+      // Calculate total repayment amount (simple interest)
       const calculatedAmount = amount + (amount * (rate / 100));
       setTotalRepaymentAmount(calculatedAmount.toFixed(2));
+      
+      // Calculate monthly payment based on repayment schedule
+      if (formData.repayment_schedule && (formData.repayment_schedule === 'monthly' || formData.repayment_schedule === 'quarterly' || formData.repayment_schedule === 'annually')) {
+        const termInMonths = convertToMonths(termLength, termUnit);
+        
+        let paymentFrequency;
+        switch (formData.repayment_schedule) {
+          case 'monthly':
+            paymentFrequency = termInMonths;
+            break;
+          case 'quarterly':
+            paymentFrequency = Math.ceil(termInMonths / 3);
+            break;
+          case 'annually':
+            paymentFrequency = Math.ceil(termInMonths / 12);
+            break;
+          default:
+            paymentFrequency = termInMonths;
+        }
+        
+        if (paymentFrequency > 0) {
+          const paymentAmount = calculatedAmount / paymentFrequency;
+          setMonthlyRepaymentAmount(paymentAmount.toFixed(2));
+        } else {
+          setMonthlyRepaymentAmount(0);
+        }
+      } else {
+        setMonthlyRepaymentAmount(0);
+      }
     } else {
       setTotalRepaymentAmount(0);
+      setMonthlyRepaymentAmount(0);
     }
-  }, [formData.loan_amount, formData.interest_rate]);
+  }, [formData.loan_amount, formData.interest_rate, formData.term_length, formData.term_unit, formData.repayment_schedule]);
 
   // Calculate repayment date based on disbursement date and term
   useEffect(() => {
@@ -136,6 +171,20 @@ const NewLoanPage = () => {
     setClientSearchTerm(`${client.first_name} ${client.last_name}`);
     setShowClientDropdown(false);
   };
+
+  // Add click outside handler to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.form-group')) {
+        setShowClientDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -313,8 +362,9 @@ const NewLoanPage = () => {
                   ) : (
                     <div style={{
                       padding: '8px 12px',
-                      color: '#666',
-                      fontStyle: 'italic'
+                      color: '#e74c3c',
+                      fontStyle: 'italic',
+                      backgroundColor: '#fdf2f2'
                     }}>
                       No clients found matching "{clientSearchTerm}"
                     </div>
@@ -459,6 +509,33 @@ const NewLoanPage = () => {
               readOnly
             />
           </div>
+
+          {/* Payment Amount Field - appears for monthly, quarterly, and annually schedules */}
+          {(formData.repayment_schedule === 'monthly' || formData.repayment_schedule === 'quarterly' || formData.repayment_schedule === 'annually') && monthlyRepaymentAmount > 0 && (
+            <div className="form-group">
+              <label htmlFor="payment_amount">
+                {formData.repayment_schedule === 'monthly' ? 'Monthly Payment Amount' : 
+                 formData.repayment_schedule === 'quarterly' ? 'Quarterly Payment Amount' : 
+                 'Annual Payment Amount'}
+              </label>
+              <input
+                type="text"
+                id="payment_amount"
+                name="payment_amount"
+                value={monthlyRepaymentAmount}
+                readOnly
+                style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold' }}
+              />
+              <small style={{ color: '#666', fontSize: '0.85em' }}>
+                {formData.repayment_schedule === 'monthly' ? 
+                  `You will pay ${monthlyRepaymentAmount} every month for ${convertToMonths(parseInt(formData.term_length), formData.term_unit)} months` :
+                 formData.repayment_schedule === 'quarterly' ? 
+                  `You will pay ${monthlyRepaymentAmount} every quarter for ${Math.ceil(convertToMonths(parseInt(formData.term_length), formData.term_unit) / 3)} payments` :
+                  `You will pay ${monthlyRepaymentAmount} every year for ${Math.ceil(convertToMonths(parseInt(formData.term_length), formData.term_unit) / 12)} payments`
+                }
+              </small>
+            </div>
+          )}
 
           {/* Repayment Date Field - appears after total repayment amount */}
           {formData.disbursement_date && formData.term_length && (
